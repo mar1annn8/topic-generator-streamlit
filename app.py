@@ -18,6 +18,45 @@ This AI tool generates topic ideas based on the marketing funnel concepts from
 tailored to the client details provided.
 """)
 
+with st.expander("How to Use This Tool"):
+    st.markdown("""
+    **This document provides a step-by-step guide on how to effectively use the Topic Generator tool to create strategic guest post topics for link-building outreach.**
+
+    **1. Understand the Tool's Purpose**
+    The Topic Generator is an AI-powered tool designed to produce relevant, high-quality topic ideas. It analyzes client information and aligns suggestions with the marketing funnel stages:
+    - **Top of the Funnel (ToFu):** Building awareness.
+    - **Middle of the Funnel (MoFu):** Encouraging consideration.
+    - **Bottom of the Funnel (BoFu):** Driving decisions.
+    
+    The methodology is based on content strategy principles from leading industry resources like SEMRush and Search Engine Land.
+
+    **2. Provide Client Details**
+    The tool works by analyzing text to understand the client's needs. For the best results, follow this primary step:
+    - **Paste Full Guidelines into Field 5:** The most effective way to use the generator is to paste the client's complete copywriting guidelines or any other detailed brand document into the text box labeled **"5. Full Copywriting Guidelines / Additional Context."** The AI will analyze this entire document to extract the industry, tone, audiences, and products.
+    
+    The other fields (1-4) are optional and can be used to add specific details or clarify information if the main document in field 5 is incomplete.
+
+    **3. Generate the Topics**
+    Once the client information is entered, click the **"Generate Topics"** button. A loader will appear while the AI processes the request. This may take a few moments.
+
+    **4. Review the Output**
+    The generated topics are organized into two main sections:
+    - **Section 1: Product/Service Topics:** This section contains ideas directly related to the client's offerings that were identified from the provided text.
+    - **Section 2: Timely & Event-Based Topics:** This section provides ideas relevant to the current date, including upcoming holidays, seasons, or important industry events.
+    
+    Each section follows a clear structure:
+    - **Main Subject:** Starts with the specific Product, Service, or Event.
+    - **Marketing Funnel:** Topics are grouped under ToFu, MoFu, or BoFu.
+    - **Target Audience:** Specifies the audience persona the topics are for.
+    - **Target Publication:** Suggests the niche or type of publication where the topic would fit.
+    - **Topics:** Lists at least three topic ideas, each with a title and a short rationale.
+
+    **Tips for Best Results**
+    - **Prioritize Field 5:** Always try to use a comprehensive document in the main guidelines field for the most context-aware suggestions.
+    - **Check for Specificity:** If the generated topics seem too general, add more specific details to the optional fields to help guide the AI.
+    - **Use as a Starting Point:** The generated ideas are a strong starting point. They should be reviewed by a strategist to ensure perfect alignment with the client's goals before outreach.
+    """)
+
 st.sidebar.header("Client Details")
 st.sidebar.info("Fill out the fields below. For the most accurate results, paste the full copywriting guidelines into field 5.")
 
