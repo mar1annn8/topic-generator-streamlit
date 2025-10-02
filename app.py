@@ -9,6 +9,15 @@ st.set_page_config(
     layout="wide"
 )
 
+# Hide Streamlit's default menu and footer
+st.markdown("""
+    <style>
+        #MainMenu {visibility: hidden;}
+        footer {visibility: hidden;}
+    </style>
+""", unsafe_allow_html=True)
+
+
 # --- UI Display ---
 st.title("Topic Generator")
 st.markdown("""
@@ -39,17 +48,21 @@ with st.expander("How to Use This Tool"):
     **3. Generate the Topics**
     Once the client information is entered, click the **"Generate Topics"** button. A loader will appear while the AI processes the request. This may take a few moments.
 
-    **4. Review the Output**
+    **4. Review and Understand the Output**
     The generated topics are organized into two main sections:
-    - **Section 1: Product/Service Topics:** This section contains ideas directly related to the client's offerings that were identified from the provided text.
-    - **Section 2: Timely & Event-Based Topics:** This section provides ideas relevant to the current date, including upcoming holidays, seasons, or important industry events.
+    - **Section 1: Product/Service Topics:** Contains ideas directly related to the client's offerings.
+    - **Section 2: Timely & Event-Based Topics:** Provides ideas relevant to the current date, including upcoming holidays, seasons, or important industry events.
     
     Each section follows a clear structure:
-    - **Main Subject:** Starts with the specific Product, Service, or Event.
+    - **Main Subject:** The specific Product, Service, or Event.
     - **Marketing Funnel:** Topics are grouped under ToFu, MoFu, or BoFu.
-    - **Target Audience:** Specifies the audience persona the topics are for.
-    - **Target Publication:** Suggests the niche or type of publication where the topic would fit.
-    - **Topics:** Lists at least three topic ideas, each with a title and a short rationale.
+    - **Target Audience:** The audience persona the topics are for.
+    - **Target Publication:** The suggested niche for guest posting.
+    
+    Within each publication niche, there will be at least three topic suggestions, each with three parts:
+    - **Topic:** A short, concise title (max 60 characters) designed for quick pitches. It frames the product as a solution.
+    - **Suggested Headline:** A longer, more engaging headline ready for an article.
+    - **Rationale:** A brief explanation of why the topic is valuable and relevant to the target audience.
 
     **Tips for Best Results**
     - **Prioritize Field 5:** Always try to use a comprehensive document in the main guidelines field for the most context-aware suggestions.
@@ -97,12 +110,12 @@ generate_btn = st.sidebar.button("Generate Topics", type="primary")
 # --- Functions for API Call and Display ---
 
 def fetch_with_retry(url, options, retries=3):
-    """Simple retry logic for the API call."""
+    """Retry logic for the API call with a timeout."""
     for i in range(retries):
         try:
-            response = requests.post(url, headers=options['headers'], data=options['body'])
-            # Don't retry on 4xx client errors like 403 Forbidden
-            if response.status_code < 500:
+            # Added a timeout of 60 seconds
+            response = requests.post(url, headers=options['headers'], data=options['body'], timeout=60)
+            if response.status_code < 500: # Don't retry on client errors (4xx)
                 return response
         except requests.exceptions.RequestException as e:
             if i == retries - 1:
@@ -135,14 +148,14 @@ def create_topic_group(group_name, funnels, group_label):
                     for pub in audience.get('publications', []):
                         with st.expander(f"Publication Niche: {pub.get('publicationNiche', 'N/A')}"):
                             for topic in pub.get('topics', []):
-                                st.markdown(f"**Title:** {topic.get('title', 'No Title')}")
+                                st.markdown(f"**Topic:** {topic.get('topic', 'No Topic')}")
+                                st.markdown(f"**Suggested Headline:** {topic.get('suggestedHeadline', 'No Headline')}")
                                 st.caption(f"Rationale: {topic.get('rationale', 'No Rationale')}")
                                 st.markdown("---")
 
 
 # --- Main Logic ---
 if generate_btn:
-    # Prioritize user-input key, fall back to secrets for deployed apps
     api_key = api_key_input or st.secrets.get("GOOGLE_API_KEY")
 
     if not api_key:
@@ -150,18 +163,24 @@ if generate_btn:
     elif not guidelines:
         st.sidebar.error("Please paste the copywriting guidelines into field 5 for analysis.")
     else:
-        with st.spinner("Generating topics... Please wait."):
+        with st.spinner("Generating topics... This may take up to a minute."):
             current_date = datetime.now().strftime('%B %d, %Y')
             
             system_prompt = """You are a strategic content and marketing analyst. Your task is to generate two distinct sets of guest post topics based on the provided client guidelines and the current date. The topic generation must be guided by the marketing funnel principles (ToFu, MoFu, BoFu).
 
-            First, analyze the 'Full Copywriting Guidelines' to extract the client's industry, tone, target audiences, and products/services. Use the optional fields (1-4) to supplement or clarify this information if provided.
+            First, analyze the 'Full Copywriting Guidelines' to extract the client's industry, tone, target audiences, and products/services.
 
-            Second, generate two sets of topics:
-            1.  **Product-Based Topics:** Ideas directly related to the client's products/services you identified.
+            Second, generate two sets of topics ensuring there are at least 3 topics per funnel stage for each audience and product/event:
+            1.  **Product-Based Topics:** Ideas directly related to the client's products/services.
             2.  **Timely & Event-Based Topics:** Based on the 'Current Date' and the client's industry, identify relevant upcoming holidays, industry events, or seasonal business milestones and create topics for them.
 
-            The final output must be a single JSON object with two top-level keys: `productBasedTopics` and `timelyTopics`, adhering to the provided schema. For each topic, create a title and rationale."""
+            For each generated topic, you must provide three elements:
+            - 'topic': A short, concise title (MAXIMUM 60 characters) that frames the product/service as a solution to a problem relevant to the funnel stage.
+            - 'suggestedHeadline': A longer, more engaging headline suitable for a full article.
+            - 'rationale': A brief explanation of the topic's value and relevance.
+            
+            The final output must be a single JSON object with two top-level keys: `productBasedTopics` and `timelyTopics`, adhering to the provided schema.
+            """
 
             user_query = f"Current Date: {current_date}\n\nFull Copywriting Guidelines:\n---\n{guidelines}\n---\n"
             
@@ -179,18 +198,8 @@ if generate_btn:
             schema = {
                 "type": "OBJECT",
                 "properties": {
-                    "productBasedTopics": {
-                        "type": "ARRAY",
-                        "items": {
-                            "type": "OBJECT", "properties": {"productName": {"type": "STRING"}, "funnels": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"funnelStage": {"type": "STRING", "enum": ["ToFu", "MoFu", "BoFu"]}, "audiences": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"audienceName": {"type": "STRING"}, "publications": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"publicationNiche": {"type": "STRING"}, "topics": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"title": {"type": "STRING"}, "rationale": {"type": "STRING"}}, "required": ["title", "rationale"]}}}, "required": ["publicationNiche", "topics"]}}}, "required": ["audienceName", "publications"]}}}, "required": ["funnelStage", "audiences"]}}}
-                        }
-                    },
-                    "timelyTopics": {
-                        "type": "ARRAY",
-                        "items": {
-                            "type": "OBJECT", "properties": {"eventName": {"type": "STRING"}, "funnels": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"funnelStage": {"type": "STRING", "enum": ["ToFu", "MoFu", "BoFu"]}, "audiences": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"audienceName": {"type": "STRING"}, "publications": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"publicationNiche": {"type": "STRING"}, "topics": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"title": {"type": "STRING"}, "rationale": {"type": "STRING"}}, "required": ["title", "rationale"]}}}, "required": ["publicationNiche", "topics"]}}}, "required": ["audienceName", "publications"]}}}, "required": ["funnelStage", "audiences"]}}}
-                        }
-                    }
+                    "productBasedTopics": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": {"productName": {"type": "STRING"}, "funnels": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"funnelStage": {"type": "STRING", "enum": ["ToFu", "MoFu", "BoFu"]}, "audiences": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"audienceName": {"type": "STRING"}, "publications": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"publicationNiche": {"type": "STRING"}, "topics": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"topic": {"type": "STRING"}, "suggestedHeadline": {"type": "STRING"}, "rationale": {"type": "STRING"}}, "required": ["topic", "suggestedHeadline", "rationale"]}}}, "required": ["publicationNiche", "topics"]}}}, "required": ["audienceName", "publications"]}}}, "required": ["funnelStage", "audiences"]}}} } },
+                    "timelyTopics": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": {"eventName": {"type": "STRING"}, "funnels": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"funnelStage": {"type": "STRING", "enum": ["ToFu", "MoFu", "BoFu"]}, "audiences": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"audienceName": {"type": "STRING"}, "publications": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"publicationNiche": {"type": "STRING"}, "topics": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"topic": {"type": "STRING"}, "suggestedHeadline": {"type": "STRING"}, "rationale": {"type": "STRING"}}, "required": ["topic", "suggestedHeadline", "rationale"]}}}, "required": ["publicationNiche", "topics"]}}}, "required": ["audienceName", "publications"]}}}, "required": ["funnelStage", "audiences"]}}} } }
                 },
                 "required": ["productBasedTopics", "timelyTopics"]
             }
@@ -233,7 +242,13 @@ if generate_btn:
                 except (json.JSONDecodeError, IndexError, KeyError) as e:
                     st.error(f"Failed to parse the API response. Please try again. Error: {e}")
             elif response:
-                 st.error(f"API request failed with status code: {response.status_code}. This may be an issue with the API key or permissions.")
+                 # Display the detailed error message from the API
+                 try:
+                     error_details = response.json()
+                     st.error(f"API request failed with status code: {response.status_code}.")
+                     st.json(error_details)
+                 except json.JSONDecodeError:
+                     st.error(f"API request failed with status code: {response.status_code} and could not parse the error response.")
             else:
-                 st.error("The request to the AI model failed. Please check the details and try again.")
+                 st.error("The request to the AI model failed. Please check the network connection and try again.")
 
