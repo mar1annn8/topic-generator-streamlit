@@ -57,6 +57,12 @@ with st.expander("How to Use This Tool"):
     - **Use as a Starting Point:** The generated ideas are a strong starting point. They should be reviewed by a strategist to ensure perfect alignment with the client's goals before outreach.
     """)
 
+# --- Sidebar Inputs ---
+st.sidebar.header("Configuration")
+api_key_input = st.sidebar.text_input("Enter Google API Key", type="password", help="Your key is not stored. It is used only for this session.")
+st.sidebar.markdown("Refer to the `how-to-get-api-key.md` guide for instructions on getting a key.")
+st.sidebar.divider()
+
 st.sidebar.header("Client Details")
 st.sidebar.info("Fill out the fields below. For the most accurate results, paste the full copywriting guidelines into field 5.")
 
@@ -75,14 +81,15 @@ def fetch_with_retry(url, options, retries=3):
     for i in range(retries):
         try:
             response = requests.post(url, headers=options['headers'], data=options['body'])
-            if response.status_code == 200:
+            # Don't retry on 4xx client errors like 403 Forbidden
+            if response.status_code < 500:
                 return response
         except requests.exceptions.RequestException as e:
             if i == retries - 1:
                 st.error(f"Request failed after {retries} retries: {e}")
                 return None
     st.error(f"API request failed with status code: {response.status_code}")
-    return None
+    return response # Return the failed response to inspect the status code
 
 def create_topic_group(group_name, funnels, group_label):
     """Renders a single group of topics (for a product or event)."""
@@ -115,7 +122,12 @@ def create_topic_group(group_name, funnels, group_label):
 
 # --- Main Logic ---
 if generate_btn:
-    if not guidelines:
+    # Prioritize user-input key, fall back to secrets for deployed apps
+    api_key = api_key_input or st.secrets.get("GOOGLE_API_KEY")
+
+    if not api_key:
+        st.error("Google API Key not found. Please enter it in the sidebar or add it to your Streamlit secrets for deployed apps.")
+    elif not guidelines:
         st.sidebar.error("Please paste the copywriting guidelines into field 5 for analysis.")
     else:
         with st.spinner("Generating topics... Please wait."):
@@ -163,7 +175,6 @@ if generate_btn:
                 "required": ["productBasedTopics", "timelyTopics"]
             }
 
-            api_key = "" # API key is handled by the environment
             api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key={api_key}"
 
             payload = {
@@ -179,7 +190,7 @@ if generate_btn:
             
             response = fetch_with_retry(api_url, options)
             
-            if response:
+            if response and response.status_code == 200:
                 try:
                     result = response.json()
                     text_content = result.get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', '')
@@ -201,5 +212,8 @@ if generate_btn:
                         st.error("No content received from the API. The model may not have been able to generate a valid response.")
                 except (json.JSONDecodeError, IndexError, KeyError) as e:
                     st.error(f"Failed to parse the API response. Please try again. Error: {e}")
+            elif response:
+                 st.error(f"API request failed with status code: {response.status_code}. This may be an issue with the API key or permissions.")
             else:
                  st.error("The request to the AI model failed. Please check the details and try again.")
+
