@@ -69,6 +69,7 @@ with st.expander("How to Get a Google AI API Key"):
     - Once logged in, click on the **"Get API key"** option on the left-hand menu.
 
     **3. Create API Key**
+    - If this is the first time creating a key, a prompt will appear to create a new project. Name the project `topic-generation-tool-[Name]` (replacing `[Name]` with the user's name or initials) and continue.
     - Click the **"Create API key in new project"** button.
     - A new key will be generated and will appear in a pop-up window.
 
