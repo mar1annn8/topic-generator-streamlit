@@ -75,8 +75,6 @@ with st.expander("How to Get a Google AI API Key"):
     **4. Copy and Use the Key**
     - Click the copy icon next to the long string of letters and numbers to copy the API key to the clipboard.
     - Paste this key into the **"Enter Google API Key"** field in the Topic Generator's sidebar.
-    
-    The key is now ready to use for the current session.
     """)
 
 # --- Sidebar Inputs ---
