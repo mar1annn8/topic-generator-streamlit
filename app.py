@@ -57,10 +57,31 @@ with st.expander("How to Use This Tool"):
     - **Use as a Starting Point:** The generated ideas are a strong starting point. They should be reviewed by a strategist to ensure perfect alignment with the client's goals before outreach.
     """)
 
+with st.expander("How to Get a Google AI API Key"):
+    st.markdown("""
+    Follow these steps to generate a free API key from Google AI Studio, which is required to run the Topic Generator.
+
+    **1. Visit Google AI Studio**
+    - Open a web browser and go to the Google AI Studio website: [aistudio.google.com](https://aistudio.google.com)
+
+    **2. Get API Key**
+    - Sign in with a Google account.
+    - Once logged in, click on the **"Get API key"** option on the left-hand menu.
+
+    **3. Create API Key**
+    - Click the **"Create API key in new project"** button.
+    - A new key will be generated and will appear in a pop-up window.
+
+    **4. Copy and Use the Key**
+    - Click the copy icon next to the long string of letters and numbers to copy the API key to the clipboard.
+    - Paste this key into the **"Enter Google API Key"** field in the Topic Generator's sidebar.
+    
+    The key is now ready to use for the current session.
+    """)
+
 # --- Sidebar Inputs ---
 st.sidebar.header("Configuration")
-api_key_input = st.sidebar.text_input("Enter Google API Key", type="password", help="Your key is not stored. It is used only for this session.")
-st.sidebar.markdown("Refer to the `how-to-get-api-key.md` guide for instructions on getting a key.")
+api_key_input = st.sidebar.text_input("Enter Google API Key", type="password", help="Get a key using the instructions in the main panel.")
 st.sidebar.divider()
 
 st.sidebar.header("Client Details")
