@@ -14,6 +14,7 @@ st.markdown("""
     <style>
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
+        header {visibility: hidden;}
     </style>
 """, unsafe_allow_html=True)
 
@@ -97,7 +98,7 @@ api_key_input = st.sidebar.text_input("Enter Google API Key", type="password", h
 st.sidebar.divider()
 
 st.sidebar.header("Client Details")
-st.sidebar.info("Fill out the fields below. For the most accurate results, paste the full copywriting guidelines into field 5.")
+st.sidebar.info("Fill out field 5 OR fields 1-4 for the best results.")
 
 industry = st.sidebar.text_input("1. Client Industry/Niche (Optional)", placeholder="e.g., B2B SaaS for project management")
 tone = st.sidebar.text_input("2. Branding Tone/Voice (Optional)", placeholder="e.g., Authoritative, yet approachable")
@@ -110,19 +111,22 @@ generate_btn = st.sidebar.button("Generate Topics", type="primary")
 # --- Functions for API Call and Display ---
 
 def fetch_with_retry(url, options, retries=3):
-    """Retry logic for the API call with a timeout."""
+    """Retry logic for the API call with a timeout. Returns (response, error_message)."""
     for i in range(retries):
         try:
-            # Added a timeout of 60 seconds
             response = requests.post(url, headers=options['headers'], data=options['body'], timeout=60)
-            if response.status_code < 500: # Don't retry on client errors (4xx)
-                return response
+            if response.status_code < 500:  # Success or client error
+                return response, None
+            # If server error (>=500), the loop will continue and retry
         except requests.exceptions.RequestException as e:
             if i == retries - 1:
-                st.error(f"Request failed after {retries} retries: {e}")
-                return None
-    st.error(f"API request failed with status code: {response.status_code}")
-    return response # Return the failed response to inspect the status code
+                # Last retry failed, return the error
+                error_msg = f"A network error occurred after multiple retries: {e}. This might be a temporary issue with the connection. Please try again in a few moments."
+                return None, error_msg
+    # This part is reached if all retries on a 5xx error fail
+    error_msg = f"The server responded with an error (Status {response.status_code}) after multiple retries. Please try again later."
+    return None, error_msg
+
 
 def create_topic_group(group_name, funnels, group_label):
     """Renders a single group of topics (for a product or event)."""
@@ -160,95 +164,112 @@ if generate_btn:
 
     if not api_key:
         st.error("Google API Key not found. Please enter it in the sidebar or add it to your Streamlit secrets for deployed apps.")
-    elif not guidelines:
-        st.sidebar.error("Please paste the copywriting guidelines into field 5 for analysis.")
     else:
-        with st.spinner("Generating topics... This may take up to a minute."):
-            current_date = datetime.now().strftime('%B %d, %Y')
-            
-            system_prompt = """You are a strategic content and marketing analyst. Your task is to generate two distinct sets of guest post topics based on the provided client guidelines and the current date. The topic generation must be guided by the marketing funnel principles (ToFu, MoFu, BoFu).
+        has_guidelines = bool(guidelines)
+        has_other_details = bool(industry or tone or audience_input or product_input)
 
-            First, analyze the 'Full Copywriting Guidelines' to extract the client's industry, tone, target audiences, and products/services.
+        if not has_guidelines and not has_other_details:
+            st.sidebar.error("Please provide client details in field 5, or in fields 1-4.")
+        else:
+            with st.spinner("Generating topics... This may take up to a minute."):
+                current_date = datetime.now().strftime('%B %d, %Y')
+                
+                system_prompt = """You are a strategic content and marketing analyst. Your task is to generate two distinct sets of guest post topics based on the provided client details and the current date. The topic generation must be guided by the marketing funnel principles (ToFu, MoFu, BoFu).
 
-            Second, generate two sets of topics ensuring there are at least 3 topics per funnel stage for each audience and product/event:
-            1.  **Product-Based Topics:** Ideas directly related to the client's products/services.
-            2.  **Timely & Event-Based Topics:** Based on the 'Current Date' and the client's industry, identify relevant upcoming holidays, industry events, or seasonal business milestones and create topics for them.
+                First, analyze the provided text (which may be copywriting guidelines or a collection of details) to extract the client's industry, tone, target audiences, and products/services.
 
-            For each generated topic, you must provide three elements:
-            - 'topic': A short, concise title (MAXIMUM 60 characters) that frames the product/service as a solution to a problem relevant to the funnel stage.
-            - 'suggestedHeadline': A longer, more engaging headline suitable for a full article.
-            - 'rationale': A brief explanation of the topic's value and relevance.
-            
-            The final output must be a single JSON object with two top-level keys: `productBasedTopics` and `timelyTopics`, adhering to the provided schema.
-            """
+                Second, generate two sets of topics ensuring there are at least 3 topics per funnel stage for each audience and product/event:
+                1.  **Product-Based Topics:** Ideas directly related to the client's products/services.
+                2.  **Timely & Event-Based Topics:** Based on the 'Current Date' and the client's industry, identify relevant upcoming holidays, industry events, or seasonal business milestones and create topics for them.
 
-            user_query = f"Current Date: {current_date}\n\nFull Copywriting Guidelines:\n---\n{guidelines}\n---\n"
-            
-            optional_inputs = {
-                "Specific Industry/Niche": industry,
-                "Specific Branding Tone/Voice": tone,
-                "Specific Target Audiences": audience_input,
-                "Specific Products/Services": product_input
-            }
+                For each generated topic, you must provide three elements:
+                - 'topic': A short, concise title (MAXIMUM 60 characters) that frames the product/service as a solution to a problem relevant to the funnel stage.
+                - 'suggestedHeadline': A longer, more engaging headline suitable for a full article.
+                - 'rationale': A brief explanation of the topic's value and relevance.
+                
+                The final output must be a single JSON object with two top-level keys: `productBasedTopics` and `timelyTopics`, adhering to the provided schema.
+                """
 
-            optional_details = "\n".join([f"- {key}: {value}" for key, value in optional_inputs.items() if value])
-            if optional_details:
-                user_query += f"\nSupplemental Details from Optional Fields:\n{optional_details}"
+                user_query = f"Current Date: {current_date}\n\n"
 
-            schema = {
-                "type": "OBJECT",
-                "properties": {
-                    "productBasedTopics": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": {"productName": {"type": "STRING"}, "funnels": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"funnelStage": {"type": "STRING", "enum": ["ToFu", "MoFu", "BoFu"]}, "audiences": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"audienceName": {"type": "STRING"}, "publications": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"publicationNiche": {"type": "STRING"}, "topics": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"topic": {"type": "STRING"}, "suggestedHeadline": {"type": "STRING"}, "rationale": {"type": "STRING"}}, "required": ["topic", "suggestedHeadline", "rationale"]}}}, "required": ["publicationNiche", "topics"]}}}, "required": ["audienceName", "publications"]}}}, "required": ["funnelStage", "audiences"]}}} } },
-                    "timelyTopics": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": {"eventName": {"type": "STRING"}, "funnels": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"funnelStage": {"type": "STRING", "enum": ["ToFu", "MoFu", "BoFu"]}, "audiences": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"audienceName": {"type": "STRING"}, "publications": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"publicationNiche": {"type": "STRING"}, "topics": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"topic": {"type": "STRING"}, "suggestedHeadline": {"type": "STRING"}, "rationale": {"type": "STRING"}}, "required": ["topic", "suggestedHeadline", "rationale"]}}}, "required": ["publicationNiche", "topics"]}}}, "required": ["audienceName", "publications"]}}}, "required": ["funnelStage", "audiences"]}}} } }
-                },
-                "required": ["productBasedTopics", "timelyTopics"]
-            }
+                if has_guidelines:
+                    user_query += f"Full Copywriting Guidelines:\n---\n{guidelines}\n---\n"
+                    # Add supplemental details if they exist
+                    optional_inputs = {
+                        "Specific Industry/Niche": industry,
+                        "Specific Branding Tone/Voice": tone,
+                        "Specific Target Audiences": audience_input,
+                        "Specific Products/Services": product_input
+                    }
+                    optional_details = "\n".join([f"- {key}: {value}" for key, value in optional_inputs.items() if value])
+                    if optional_details:
+                        user_query += f"\nSupplemental Details from Optional Fields:\n{optional_details}"
+                else: # No guidelines, use the other fields as the primary source
+                    user_query += "Client Details:\n"
+                    primary_inputs = {
+                        "Industry/Niche": industry,
+                        "Branding Tone/Voice": tone,
+                        "Target Audiences": audience_input,
+                        "Products/Services to Highlight": product_input
+                    }
+                    primary_details = "\n".join([f"- {key}: {value}" for key, value in primary_inputs.items() if value])
+                    user_query += primary_details
 
-            api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key={api_key}"
 
-            payload = {
-                "contents": [{"parts": [{"text": user_query}]}],
-                "systemInstruction": {"parts": [{"text": system_prompt}]},
-                "generationConfig": {"responseMimeType": "application/json", "responseSchema": schema}
-            }
-            
-            options = {
-                'headers': {'Content-Type': 'application/json'},
-                'body': json.dumps(payload)
-            }
-            
-            response = fetch_with_retry(api_url, options)
-            
-            if response and response.status_code == 200:
-                try:
-                    result = response.json()
-                    text_content = result.get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', '')
-                    
-                    if text_content:
-                        data = json.loads(text_content)
-                        st.header("Generated Topics", divider="rainbow")
+                schema = {
+                    "type": "OBJECT",
+                    "properties": {
+                        "productBasedTopics": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": {"productName": {"type": "STRING"}, "funnels": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"funnelStage": {"type": "STRING", "enum": ["ToFu", "MoFu", "BoFu"]}, "audiences": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"audienceName": {"type": "STRING"}, "publications": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"publicationNiche": {"type": "STRING"}, "topics": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"topic": {"type": "STRING"}, "suggestedHeadline": {"type": "STRING"}, "rationale": {"type": "STRING"}}, "required": ["topic", "suggestedHeadline", "rationale"]}}}, "required": ["publicationNiche", "topics"]}}}, "required": ["audienceName", "publications"]}}}, "required": ["funnelStage", "audiences"]}}} } },
+                        "timelyTopics": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": {"eventName": {"type": "STRING"}, "funnels": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"funnelStage": {"type": "STRING", "enum": ["ToFu", "MoFu", "BoFu"]}, "audiences": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"audienceName": {"type": "STRING"}, "publications": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"publicationNiche": {"type": "STRING"}, "topics": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"topic": {"type": "STRING"}, "suggestedHeadline": {"type": "STRING"}, "rationale": {"type": "STRING"}}, "required": ["topic", "suggestedHeadline", "rationale"]}}}, "required": ["publicationNiche", "topics"]}}}, "required": ["audienceName", "publications"]}}}, "required": ["funnelStage", "audiences"]}}} } }
+                    },
+                    "required": ["productBasedTopics", "timelyTopics"]
+                }
+
+                api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key={api_key}"
+
+                payload = {
+                    "contents": [{"parts": [{"text": user_query}]}],
+                    "systemInstruction": {"parts": [{"text": system_prompt}]},
+                    "generationConfig": {"responseMimeType": "application/json", "responseSchema": schema}
+                }
+                
+                options = {
+                    'headers': {'Content-Type': 'application/json'},
+                    'body': json.dumps(payload)
+                }
+                
+                response, error_msg = fetch_with_retry(api_url, options)
+
+                if error_msg:
+                    st.error(error_msg)
+                elif response and response.status_code == 200:
+                    try:
+                        result = response.json()
+                        text_content = result.get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', '')
                         
-                        if data.get("productBasedTopics"):
-                            st.subheader("1. Product/Service Topics")
-                            for product_data in data["productBasedTopics"]:
-                                create_topic_group(product_data.get('productName'), product_data.get('funnels', []), 'Product/Service')
-                        
-                        if data.get("timelyTopics"):
-                            st.subheader("2. Timely & Event-Based Topics")
-                            for event_data in data["timelyTopics"]:
-                                create_topic_group(event_data.get('eventName'), event_data.get('funnels', []), 'Event/Holiday')
-                    else:
-                        st.error("No content received from the API. The model may not have been able to generate a valid response.")
-                except (json.JSONDecodeError, IndexError, KeyError) as e:
-                    st.error(f"Failed to parse the API response. Please try again. Error: {e}")
-            elif response:
-                 # Display the detailed error message from the API
-                 try:
-                     error_details = response.json()
-                     st.error(f"API request failed with status code: {response.status_code}.")
-                     st.json(error_details)
-                 except json.JSONDecodeError:
-                     st.error(f"API request failed with status code: {response.status_code} and could not parse the error response.")
-            else:
-                 st.error("The request to the AI model failed. Please check the network connection and try again.")
+                        if text_content:
+                            data = json.loads(text_content)
+                            st.header("Generated Topics", divider="rainbow")
+                            
+                            if data.get("productBasedTopics"):
+                                st.subheader("1. Product/Service Topics")
+                                for product_data in data["productBasedTopics"]:
+                                    create_topic_group(product_data.get('productName'), product_data.get('funnels', []), 'Product/Service')
+                            
+                            if data.get("timelyTopics"):
+                                st.subheader("2. Timely & Event-Based Topics")
+                                for event_data in data["timelyTopics"]:
+                                    create_topic_group(event_data.get('eventName'), event_data.get('funnels', []), 'Event/Holiday')
+                        else:
+                            st.error("No content received from the API. The model may not have been able to generate a valid response.")
+                    except (json.JSONDecodeError, IndexError, KeyError) as e:
+                        st.error(f"Failed to parse the API response. Please try again. Error: {e}")
+                elif response:
+                     # Display the detailed error message from the API
+                     try:
+                         error_details = response.json()
+                         st.error(f"API request failed with status code: {response.status_code}.")
+                         st.json(error_details)
+                     except json.JSONDecodeError:
+                         st.error(f"API request failed with status code: {response.status_code} and could not parse the error response.")
 
