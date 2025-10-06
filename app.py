@@ -176,7 +176,7 @@ if generate_btn:
                 
                 system_prompt = """You are a strategic content and marketing analyst. Your task is to generate two distinct sets of guest post topics based on the provided client details and the current date. The topic generation must be guided by the marketing funnel principles (ToFu, MoFu, BoFu).
 
-                First, analyze the provided text (which may be copywriting guidelines or a collection of details) to extract the client's industry, tone, target audiences, and products/services.
+                First, analyze the provided text (which may be copywriting guidelines or a collection of details) to extract the client's industry, tone, target audiences, and products/services. When you identify a product, service, or event, summarize it into a short, clear name (e.g., "AI Security Solution" or "Annual Tech Conference") for the `productName` or `eventName` field. Do not use the entire descriptive text from the input.
 
                 Second, generate two sets of topics ensuring there are at least 3 topics per funnel stage for each audience and product/event:
                 1.  **Product-Based Topics:** Ideas directly related to the client's products/services.
@@ -219,8 +219,116 @@ if generate_btn:
                 schema = {
                     "type": "OBJECT",
                     "properties": {
-                        "productBasedTopics": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": {"productName": {"type": "STRING"}, "funnels": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"funnelStage": {"type": "STRING", "enum": ["ToFu", "MoFu", "BoFu"]}, "audiences": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"audienceName": {"type": "STRING"}, "publications": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"publicationNiche": {"type": "STRING"}, "topics": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"topic": {"type": "STRING"}, "suggestedHeadline": {"type": "STRING"}, "rationale": {"type": "STRING"}}, "required": ["topic", "suggestedHeadline", "rationale"]}}}, "required": ["publicationNiche", "topics"]}}}, "required": ["audienceName", "publications"]}}}, "required": ["funnelStage", "audiences"]}}} } },
-                        "timelyTopics": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": {"eventName": {"type": "STRING"}, "funnels": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"funnelStage": {"type": "STRING", "enum": ["ToFu", "MoFu", "BoFu"]}, "audiences": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"audienceName": {"type": "STRING"}, "publications": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"publicationNiche": {"type": "STRING"}, "topics": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"topic": {"type": "STRING"}, "suggestedHeadline": {"type": "STRING"}, "rationale": {"type": "STRING"}}, "required": ["topic", "suggestedHeadline", "rationale"]}}}, "required": ["publicationNiche", "topics"]}}}, "required": ["audienceName", "publications"]}}}, "required": ["funnelStage", "audiences"]}}} } }
+                        "productBasedTopics": {
+                            "type": "ARRAY",
+                            "items": {
+                                "type": "OBJECT",
+                                "properties": {
+                                    "productName": {
+                                        "type": "STRING",
+                                        "description": "A short, summarized name for the product/service (e.g., 'AI Security Solution'). Do not use the full descriptive text from the input."
+                                    },
+                                    "funnels": {
+                                        "type": "ARRAY",
+                                        "items": {
+                                            "type": "OBJECT",
+                                            "properties": {
+                                                "funnelStage": {"type": "STRING", "enum": ["ToFu", "MoFu", "BoFu"]},
+                                                "audiences": {
+                                                    "type": "ARRAY",
+                                                    "items": {
+                                                        "type": "OBJECT",
+                                                        "properties": {
+                                                            "audienceName": {"type": "STRING"},
+                                                            "publications": {
+                                                                "type": "ARRAY",
+                                                                "items": {
+                                                                    "type": "OBJECT",
+                                                                    "properties": {
+                                                                        "publicationNiche": {"type": "STRING"},
+                                                                        "topics": {
+                                                                            "type": "ARRAY",
+                                                                            "items": {
+                                                                                "type": "OBJECT",
+                                                                                "properties": {
+                                                                                    "topic": {"type": "STRING"},
+                                                                                    "suggestedHeadline": {"type": "STRING"},
+                                                                                    "rationale": {"type": "STRING"}
+                                                                                },
+                                                                                "required": ["topic", "suggestedHeadline", "rationale"]
+                                                                            }
+                                                                        }
+                                                                    },
+                                                                    "required": ["publicationNiche", "topics"]
+                                                                }
+                                                            }
+                                                        },
+                                                        "required": ["audienceName", "publications"]
+                                                    }
+                                                }
+                                            },
+                                            "required": ["funnelStage", "audiences"]
+                                        }
+                                    }
+                                },
+                                "required": ["productName", "funnels"]
+                            }
+                        },
+                        "timelyTopics": {
+                            "type": "ARRAY",
+                            "items": {
+                                "type": "OBJECT",
+                                "properties": {
+                                    "eventName": {
+                                        "type": "STRING",
+                                        "description": "A short, summarized name for the event or holiday (e.g., 'Q4 Sales Kickoff' or 'Cyber Monday')."
+                                    },
+                                    "funnels": {
+                                        "type": "ARRAY",
+                                        "items": {
+                                            "type": "OBJECT",
+                                            "properties": {
+                                                "funnelStage": {"type": "STRING", "enum": ["ToFu", "MoFu", "BoFu"]},
+                                                "audiences": {
+                                                    "type": "ARRAY",
+                                                    "items": {
+                                                        "type": "OBJECT",
+                                                        "properties": {
+                                                            "audienceName": {"type": "STRING"},
+                                                            "publications": {
+                                                                "type": "ARRAY",
+                                                                "items": {
+                                                                    "type": "OBJECT",
+                                                                    "properties": {
+                                                                        "publicationNiche": {"type": "STRING"},
+                                                                        "topics": {
+                                                                            "type": "ARRAY",
+                                                                            "items": {
+                                                                                "type": "OBJECT",
+                                                                                "properties": {
+                                                                                    "topic": {"type": "STRING"},
+                                                                                    "suggestedHeadline": {"type": "STRING"},
+                                                                                    "rationale": {"type": "STRING"}
+                                                                                },
+                                                                                "required": ["topic", "suggestedHeadline", "rationale"]
+                                                                            }
+                                                                        }
+                                                                    },
+                                                                    "required": ["publicationNiche", "topics"]
+                                                                }
+                                                            }
+                                                        },
+                                                        "required": ["audienceName", "publications"]
+                                                    }
+                                                }
+                                            },
+                                            "required": ["funnelStage", "audiences"]
+                                        }
+                                    }
+                                },
+                                "required": ["eventName", "funnels"]
+                            }
+                        }
                     },
                     "required": ["productBasedTopics", "timelyTopics"]
                 }
