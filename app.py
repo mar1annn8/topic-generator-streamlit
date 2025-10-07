@@ -29,81 +29,81 @@ This AI tool generates topic ideas based on the marketing funnel concepts from
 tailored to the client details provided.
 """)
 
-st.header("How to Start")
-st.markdown("""
-**Option 1: Analyze a Website (Recommended)**
-1.  Enter a client's website URL in the sidebar.
-2.  Click "Analyze Website".
-3.  The tool will auto-fill the client details for you.
+with st.expander("How to Start"):
+    st.markdown("""
+    **Option 1: Analyze a Website (Recommended)**
+    1.  Enter a client's website URL in the sidebar.
+    2.  Click "Analyze Website".
+    3.  The tool will auto-fill the client details for you.
 
-**Option 2: Enter Details Manually**
-- Skip the website analysis and fill in the client details in the sidebar directly. Use field 5 for complete guidelines.
-""")
+    **Option 2: Enter Details Manually**
+    - Skip the website analysis and fill in the client details in the sidebar directly. Use field 5 for complete guidelines.
+    """)
 
 
-st.header("How to Use This Tool")
-st.markdown("""
-**This document provides a step-by-step guide on how to effectively use the Topic Generator tool to create strategic guest post topics for link-building outreach.**
+with st.expander("How to Use This Tool"):
+    st.markdown("""
+    **This document provides a step-by-step guide on how to effectively use the Topic Generator tool to create strategic guest post topics for link-building outreach.**
 
-**1. Understand the Tool's Purpose**
-The Topic Generator is an AI-powered tool designed to produce relevant, high-quality topic ideas. It analyzes client information and aligns suggestions with the marketing funnel stages:
-- **Top of the Funnel (ToFu):** Building awareness.
-- **Middle of the Funnel (MoFu):** Encouraging consideration.
-- **Bottom of the Funnel (BoFu):** Driving decisions.
+    **1. Understand the Tool's Purpose**
+    The Topic Generator is an AI-powered tool designed to produce relevant, high-quality topic ideas. It analyzes client information and aligns suggestions with the marketing funnel stages:
+    - **Top of the Funnel (ToFu):** Building awareness.
+    - **Middle of the Funnel (MoFu):** Encouraging consideration.
+    - **Bottom of the Funnel (BoFu):** Driving decisions.
 
-The methodology is based on content strategy principles from leading industry resources like SEMRush and Search Engine Land.
+    The methodology is based on content strategy principles from leading industry resources like SEMRush and Search Engine Land.
 
-**2. Provide Client Details**
-The tool works by analyzing text to understand the client's needs. For the best results, follow this primary step:
-- **Paste Full Guidelines into Field 5:** The most effective way to use the generator is to paste the client's complete copywriting guidelines or any other detailed brand document into the text box labeled **"5. Full Copywriting Guidelines / Additional Context."** The AI will analyze this entire document to extract the industry, tone, audiences, and products.
+    **2. Provide Client Details**
+    The tool works by analyzing text to understand the client's needs. For the best results, follow this primary step:
+    - **Paste Full Guidelines into Field 5:** The most effective way to use the generator is to paste the client's complete copywriting guidelines or any other detailed brand document into the text box labeled **"5. Full Copywriting Guidelines / Additional Context."** The AI will analyze this entire document to extract the industry, tone, audiences, and products.
 
-The other fields (1-4) are optional and can be used to add specific details or clarify information if the main document in field 5 is incomplete.
+    The other fields (1-4) are optional and can be used to add specific details or clarify information if the main document in field 5 is incomplete.
 
-**3. Generate the Topics**
-Once the client information is entered, click the **"Generate Topics"** button. A loader will appear while the AI processes the request. This may take a few moments.
+    **3. Generate the Topics**
+    Once the client information is entered, click the **"Generate Topics"** button. A loader will appear while the AI processes the request. This may take a few moments.
 
-**4. Review and Understand the Output**
-The generated topics are organized into two main sections:
-- **Section 1: Product/Service Topics:** Contains ideas directly related to the client's offerings.
-- **Section 2: Timely & Event-Based Topics:** Provides ideas relevant to the current date, including upcoming holidays, seasons, or important industry events.
+    **4. Review and Understand the Output**
+    The generated topics are organized into two main sections:
+    - **Section 1: Product/Service Topics:** Contains ideas directly related to the client's offerings.
+    - **Section 2: Timely & Event-Based Topics:** Provides ideas relevant to the current date, including upcoming holidays, seasons, or important industry events.
 
-Each section follows a clear structure:
-- **Main Subject:** The specific Product, Service, or Event.
-- **Marketing Funnel:** Topics are grouped under ToFu, MoFu, or BoFu.
-- **Target Audience:** The audience persona the topics are for.
-- **Target Publication:** The suggested niche for guest posting.
+    Each section follows a clear structure:
+    - **Main Subject:** The specific Product, Service, or Event.
+    - **Marketing Funnel:** Topics are grouped under ToFu, MoFu, or BoFu.
+    - **Target Audience:** The audience persona the topics are for.
+    - **Target Publication:** The suggested niche for guest posting.
 
-Within each publication niche, there will be at least three topic suggestions, each with three parts:
-- **Topic:** A short, concise title (max 60 characters) designed for quick pitches. It frames the product as a solution.
-- **Suggested Headline:** A longer, more engaging headline ready for an article.
-- **Rationale:** A brief explanation of why the topic is valuable and relevant to the target audience.
+    Within each publication niche, there will be at least three topic suggestions, each with three parts:
+    - **Topic:** A short, concise title (max 60 characters) designed for quick pitches. It frames the product as a solution.
+    - **Suggested Headline:** A longer, more engaging headline ready for an article.
+    - **Rationale:** A brief explanation of why the topic is valuable and relevant to the target audience.
 
-**Tips for Best Results**
-- **Prioritize Field 5:** Always try to use a comprehensive document in the main guidelines field for the most context-aware suggestions.
-- **Check for Specificity:** If the generated topics seem too general, add more specific details to the optional fields to help guide the AI.
-- **Use as a Starting Point:** The generated ideas are a strong starting point. They should be reviewed by a strategist to ensure perfect alignment with the client's goals before outreach.
-""")
+    **Tips for Best Results**
+    - **Prioritize Field 5:** Always try to use a comprehensive document in the main guidelines field for the most context-aware suggestions.
+    - **Check for Specificity:** If the generated topics seem too general, add more specific details to the optional fields to help guide the AI.
+    - **Use as a Starting Point:** The generated ideas are a strong starting point. They should be reviewed by a strategist to ensure perfect alignment with the client's goals before outreach.
+    """)
 
-st.header("How to Get a Google AI API Key")
-st.markdown("""
-Follow these steps to generate a free API key from Google AI Studio, which is required to run the Topic Generator.
+with st.expander("How to Get a Google AI API Key"):
+    st.markdown("""
+    Follow these steps to generate a free API key from Google AI Studio, which is required to run the Topic Generator.
 
-**1. Visit Google AI Studio**
-- Open a web browser and go to the Google AI Studio website: [aistudio.google.com](https://aistudio.google.com)
+    **1. Visit Google AI Studio**
+    - Open a web browser and go to the Google AI Studio website: [aistudio.google.com](https://aistudio.google.com)
 
-**2. Get API Key**
-- Sign in with a Google account.
-- Once logged in, click on the **"Get API key"** option on the left-hand menu.
+    **2. Get API Key**
+    - Sign in with a Google account.
+    - Once logged in, click on the **"Get API key"** option on the left-hand menu.
 
-**3. Create API Key**
-- If this is the first time creating a key, a prompt will appear to create a new project. Name the project `topic-generation-tool-[Name]` (replacing `[Name]` with the user's name or initials) and continue.
-- Click the **"Create API key in new project"** button.
-- The new key will appear in the list on https://aistudio.google.com/api-keys.
+    **3. Create API Key**
+    - If this is the first time creating a key, a prompt will appear to create a new project. Name the project `topic-generation-tool-[Name]` (replacing `[Name]` with the user's name or initials) and continue.
+    - Click the **"Create API key in new project"** button.
+    - The new key will appear in the list on https://aistudio.google.com/api-keys.
 
-**4. Copy and Use the Key**
-- Find the new key in the list and click the copy icon next to the long string of letters and numbers to copy it to the clipboard.
-- Paste this key into the **"Enter Google API Key"** field in the Topic Generator's sidebar.
-""")
+    **4. Copy and Use the Key**
+    - Find the new key in the list and click the copy icon next to the long string of letters and numbers to copy it to the clipboard.
+    - Paste this key into the **"Enter Google API Key"** field in the Topic Generator's sidebar.
+    """)
 
 # --- Initialize Session State ---
 if 'api_key' not in st.session_state: st.session_state.api_key = ""
