@@ -117,28 +117,31 @@ if 'analyzed_url' not in st.session_state: st.session_state.analyzed_url = ""
 
 
 # --- Sidebar Inputs ---
-st.sidebar.header("Configuration")
-api_key_input = st.sidebar.text_input("Enter Google API Key", type="password", help="Your key is saved for the current session.", value=st.session_state.api_key)
-st.session_state.api_key = api_key_input # Update state with current input
+with st.sidebar.expander("Configuration & Inputs", expanded=True):
+    st.subheader("Configuration")
+    api_key_input = st.text_input("Enter Google API Key", type="password", help="Your key is saved for the current session.", value=st.session_state.api_key)
+    st.session_state.api_key = api_key_input # Update state with current input
 
-st.sidebar.divider()
+    st.divider()
 
-st.sidebar.header("Client Website Analysis")
-website_url = st.sidebar.text_input("Enter Website URL")
-analyze_btn = st.sidebar.button("Analyze Website")
+    st.subheader("Client Website Analysis")
+    website_url = st.text_input("Enter Website URL")
+    analyze_btn = st.button("Analyze Website")
 
 
-st.sidebar.divider()
-st.sidebar.header("Client Details")
-st.sidebar.info("Review or edit the details below before generating topics.")
+    st.divider()
+    st.subheader("Client Details")
+    st.info("Review or edit the details below before generating topics.")
 
-st.sidebar.text_input("1. Client Industry/Niche", placeholder="Auto-filled by analysis", key="industry")
-st.sidebar.text_input("2. Branding Tone/Voice", placeholder="Auto-filled by analysis", key="tone")
-st.sidebar.text_area("3. Target Audience", placeholder="Auto-filled by analysis", key="audience_input")
-st.sidebar.text_area("4. Product/Service to Highlight", placeholder="Auto-filled by analysis", key="product_input")
-st.sidebar.text_area("5. Full Copywriting Guidelines / Additional Context", placeholder="Auto-filled by analysis", key="guidelines")
+    st.text_input("1. Client Industry/Niche", placeholder="Auto-filled by analysis", key="industry")
+    st.text_input("2. Branding Tone/Voice", placeholder="Auto-filled by analysis", key="tone")
+    st.text_area("3. Target Audience", placeholder="Auto-filled by analysis", key="audience_input")
+    st.text_area("4. Product/Service to Highlight", placeholder="Auto-filled by analysis", key="product_input")
+    st.text_area("5. Full Copywriting Guidelines / Additional Context", placeholder="Auto-filled by analysis", key="guidelines")
 
-generate_btn = st.sidebar.button("Generate Topics", type="primary")
+    st.divider()
+    
+    generate_btn = st.button("Generate Topics", type="primary")
 
 # --- Functions ---
 
