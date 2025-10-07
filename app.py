@@ -21,7 +21,7 @@ st.markdown("""
 
 
 # --- UI Display ---
-st.title("Topic Generator")
+st.markdown("<h1 style='background-color: #FFF9C4; padding: 10px; border-radius: 10px;'>Topic Generator</h1>", unsafe_allow_html=True)
 st.markdown("""
 This AI tool generates topic ideas based on the marketing funnel concepts from 
 [SEMRush](https://www.semrush.com/blog/content-marketing-funnel/) and 
@@ -116,10 +116,32 @@ if 'analysis_results' not in st.session_state: st.session_state.analysis_results
 if 'analyzed_url' not in st.session_state: st.session_state.analyzed_url = ""
 
 
+# --- Functions ---
+
+def validate_api_key(api_key):
+    """Checks if the API key is valid by making a simple request."""
+    url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
+    try:
+        response = requests.get(url, timeout=10)
+        return response.status_code == 200
+    except requests.RequestException:
+        return False
+
 # --- Sidebar Inputs ---
 with st.sidebar.expander("1. Google API Key", expanded=True):
     api_key_input = st.text_input("Enter Google API Key", type="password", help="Your key is saved for the current session.", value=st.session_state.api_key)
     st.session_state.api_key = api_key_input
+    
+    validate_btn = st.button("Validate API Key")
+    if validate_btn:
+        if st.session_state.api_key:
+            if validate_api_key(st.session_state.api_key):
+                st.success("API Key is valid!")
+            else:
+                st.error("API Key is not valid.")
+        else:
+            st.warning("Please enter an API Key to validate.")
+
 
 with st.sidebar.expander("2. Website Analysis", expanded=True):
     website_url = st.text_input("Enter Website URL")
