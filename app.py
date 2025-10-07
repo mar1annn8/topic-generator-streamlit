@@ -29,69 +29,81 @@ This AI tool generates topic ideas based on the marketing funnel concepts from
 tailored to the client details provided.
 """)
 
-with st.expander("How to Use This Tool"):
-    st.markdown("""
-    **This document provides a step-by-step guide on how to effectively use the Topic Generator tool to create strategic guest post topics for link-building outreach.**
+st.header("How to Start")
+st.markdown("""
+**Option 1: Analyze a Website (Recommended)**
+1.  Enter a client's website URL in the sidebar.
+2.  Click "Analyze Website".
+3.  The tool will auto-fill the client details for you.
 
-    **1. Understand the Tool's Purpose**
-    The Topic Generator is an AI-powered tool designed to produce relevant, high-quality topic ideas. It analyzes client information and aligns suggestions with the marketing funnel stages:
-    - **Top of the Funnel (ToFu):** Building awareness.
-    - **Middle of the Funnel (MoFu):** Encouraging consideration.
-    - **Bottom of the Funnel (BoFu):** Driving decisions.
-    
-    The methodology is based on content strategy principles from leading industry resources like SEMRush and Search Engine Land.
+**Option 2: Enter Details Manually**
+- Skip the website analysis and fill in the client details in the sidebar directly. Use field 5 for complete guidelines.
+""")
 
-    **2. Provide Client Details**
-    The tool works by analyzing text to understand the client's needs. For the best results, follow this primary step:
-    - **Paste Full Guidelines into Field 5:** The most effective way to use the generator is to paste the client's complete copywriting guidelines or any other detailed brand document into the text box labeled **"5. Full Copywriting Guidelines / Additional Context."** The AI will analyze this entire document to extract the industry, tone, audiences, and products.
-    
-    The other fields (1-4) are optional and can be used to add specific details or clarify information if the main document in field 5 is incomplete.
 
-    **3. Generate the Topics**
-    Once the client information is entered, click the **"Generate Topics"** button. A loader will appear while the AI processes the request. This may take a few moments.
+st.header("How to Use This Tool")
+st.markdown("""
+**This document provides a step-by-step guide on how to effectively use the Topic Generator tool to create strategic guest post topics for link-building outreach.**
 
-    **4. Review and Understand the Output**
-    The generated topics are organized into two main sections:
-    - **Section 1: Product/Service Topics:** Contains ideas directly related to the client's offerings.
-    - **Section 2: Timely & Event-Based Topics:** Provides ideas relevant to the current date, including upcoming holidays, seasons, or important industry events.
-    
-    Each section follows a clear structure:
-    - **Main Subject:** The specific Product, Service, or Event.
-    - **Marketing Funnel:** Topics are grouped under ToFu, MoFu, or BoFu.
-    - **Target Audience:** The audience persona the topics are for.
-    - **Target Publication:** The suggested niche for guest posting.
-    
-    Within each publication niche, there will be at least three topic suggestions, each with three parts:
-    - **Topic:** A short, concise title (max 60 characters) designed for quick pitches. It frames the product as a solution.
-    - **Suggested Headline:** A longer, more engaging headline ready for an article.
-    - **Rationale:** A brief explanation of why the topic is valuable and relevant to the target audience.
+**1. Understand the Tool's Purpose**
+The Topic Generator is an AI-powered tool designed to produce relevant, high-quality topic ideas. It analyzes client information and aligns suggestions with the marketing funnel stages:
+- **Top of the Funnel (ToFu):** Building awareness.
+- **Middle of the Funnel (MoFu):** Encouraging consideration.
+- **Bottom of the Funnel (BoFu):** Driving decisions.
 
-    **Tips for Best Results**
-    - **Prioritize Field 5:** Always try to use a comprehensive document in the main guidelines field for the most context-aware suggestions.
-    - **Check for Specificity:** If the generated topics seem too general, add more specific details to the optional fields to help guide the AI.
-    - **Use as a Starting Point:** The generated ideas are a strong starting point. They should be reviewed by a strategist to ensure perfect alignment with the client's goals before outreach.
-    """)
+The methodology is based on content strategy principles from leading industry resources like SEMRush and Search Engine Land.
 
-with st.expander("How to Get a Google AI API Key"):
-    st.markdown("""
-    Follow these steps to generate a free API key from Google AI Studio, which is required to run the Topic Generator.
+**2. Provide Client Details**
+The tool works by analyzing text to understand the client's needs. For the best results, follow this primary step:
+- **Paste Full Guidelines into Field 5:** The most effective way to use the generator is to paste the client's complete copywriting guidelines or any other detailed brand document into the text box labeled **"5. Full Copywriting Guidelines / Additional Context."** The AI will analyze this entire document to extract the industry, tone, audiences, and products.
 
-    **1. Visit Google AI Studio**
-    - Open a web browser and go to the Google AI Studio website: [aistudio.google.com](https://aistudio.google.com)
+The other fields (1-4) are optional and can be used to add specific details or clarify information if the main document in field 5 is incomplete.
 
-    **2. Get API Key**
-    - Sign in with a Google account.
-    - Once logged in, click on the **"Get API key"** option on the left-hand menu.
+**3. Generate the Topics**
+Once the client information is entered, click the **"Generate Topics"** button. A loader will appear while the AI processes the request. This may take a few moments.
 
-    **3. Create API Key**
-    - If this is the first time creating a key, a prompt will appear to create a new project. Name the project `topic-generation-tool-[Name]` (replacing `[Name]` with the user's name or initials) and continue.
-    - Click the **"Create API key in new project"** button.
-    - The new key will appear in the list on https://aistudio.google.com/api-keys.
+**4. Review and Understand the Output**
+The generated topics are organized into two main sections:
+- **Section 1: Product/Service Topics:** Contains ideas directly related to the client's offerings.
+- **Section 2: Timely & Event-Based Topics:** Provides ideas relevant to the current date, including upcoming holidays, seasons, or important industry events.
 
-    **4. Copy and Use the Key**
-    - Find the new key in the list and click the copy icon next to the long string of letters and numbers to copy it to the clipboard.
-    - Paste this key into the **"Enter Google API Key"** field in the Topic Generator's sidebar.
-    """)
+Each section follows a clear structure:
+- **Main Subject:** The specific Product, Service, or Event.
+- **Marketing Funnel:** Topics are grouped under ToFu, MoFu, or BoFu.
+- **Target Audience:** The audience persona the topics are for.
+- **Target Publication:** The suggested niche for guest posting.
+
+Within each publication niche, there will be at least three topic suggestions, each with three parts:
+- **Topic:** A short, concise title (max 60 characters) designed for quick pitches. It frames the product as a solution.
+- **Suggested Headline:** A longer, more engaging headline ready for an article.
+- **Rationale:** A brief explanation of why the topic is valuable and relevant to the target audience.
+
+**Tips for Best Results**
+- **Prioritize Field 5:** Always try to use a comprehensive document in the main guidelines field for the most context-aware suggestions.
+- **Check for Specificity:** If the generated topics seem too general, add more specific details to the optional fields to help guide the AI.
+- **Use as a Starting Point:** The generated ideas are a strong starting point. They should be reviewed by a strategist to ensure perfect alignment with the client's goals before outreach.
+""")
+
+st.header("How to Get a Google AI API Key")
+st.markdown("""
+Follow these steps to generate a free API key from Google AI Studio, which is required to run the Topic Generator.
+
+**1. Visit Google AI Studio**
+- Open a web browser and go to the Google AI Studio website: [aistudio.google.com](https://aistudio.google.com)
+
+**2. Get API Key**
+- Sign in with a Google account.
+- Once logged in, click on the **"Get API key"** option on the left-hand menu.
+
+**3. Create API Key**
+- If this is the first time creating a key, a prompt will appear to create a new project. Name the project `topic-generation-tool-[Name]` (replacing `[Name]` with the user's name or initials) and continue.
+- Click the **"Create API key in new project"** button.
+- The new key will appear in the list on https://aistudio.google.com/api-keys.
+
+**4. Copy and Use the Key**
+- Find the new key in the list and click the copy icon next to the long string of letters and numbers to copy it to the clipboard.
+- Paste this key into the **"Enter Google API Key"** field in the Topic Generator's sidebar.
+""")
 
 # --- Initialize Session State ---
 if 'api_key' not in st.session_state: st.session_state.api_key = ""
@@ -111,19 +123,8 @@ st.session_state.api_key = api_key_input # Update state with current input
 
 st.sidebar.divider()
 
-st.sidebar.header("How to Start")
-st.sidebar.markdown("""
-**Option 1: Analyze a Website (Recommended)**
-1.  Enter a client's website URL below.
-2.  Click "Analyze Website".
-3.  The tool will auto-fill the client details for you.
-
-**Option 2: Enter Details Manually**
-- Skip the website analysis and fill in the client details directly. Use field 5 for complete guidelines.
-""")
-
-st.sidebar.subheader("Client Website Analysis")
-website_url = st.sidebar.text_input("Enter Client Website URL")
+st.sidebar.header("Client Website Analysis")
+website_url = st.sidebar.text_input("Enter Website URL")
 analyze_btn = st.sidebar.button("Analyze Website")
 
 
@@ -415,42 +416,47 @@ if generate_btn:
                 
                 response, error_msg = fetch_with_retry(api_url, options)
 
+                # Initialize a placeholder for the results in the main window
+                results_placeholder = st.empty()
+
                 if error_msg:
-                    st.error(error_msg)
+                    results_placeholder.error(error_msg)
                 elif response and response.status_code == 200:
                     try:
                         result = response.json()
                         text_content = result.get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', '')
                         if text_content:
                             data = json.loads(text_content)
-                            st.header("Generated Topics", divider="rainbow")
                             
-                            if st.session_state.get('analysis_results'):
-                                st.subheader("Website Analysis Summary")
-                                with st.container(border=True):
-                                    analysis = st.session_state.analysis_results
-                                    st.markdown(f"**Website URL:** {st.session_state.get('analyzed_url', 'N/A')}")
-                                    st.markdown(f"**Target Audience and Pain Points:** {analysis.get('target_audience_pain_points', 'Not found')}")
-                                    st.markdown(f"**Business Services and/or Products:** {analysis.get('services_and_products', 'Not found')}")
-                                    st.markdown(f"**Target Location:** {analysis.get('target_location', 'Not found')}")
+                            with results_placeholder.container():
+                                st.header("Generated Topics", divider="rainbow")
+                                
+                                if st.session_state.get('analysis_results'):
+                                    st.subheader("Website Analysis Summary")
+                                    with st.container(border=True):
+                                        analysis = st.session_state.analysis_results
+                                        st.markdown(f"**Website URL:** {st.session_state.get('analyzed_url', 'N/A')}")
+                                        st.markdown(f"**Target Audience and Pain Points:** {analysis.get('target_audience_pain_points', 'Not found')}")
+                                        st.markdown(f"**Business Services and/or Products:** {analysis.get('services_and_products', 'Not found')}")
+                                        st.markdown(f"**Target Location:** {analysis.get('target_location', 'Not found')}")
 
-                            if data.get("productBasedTopics"):
-                                st.subheader("1. Product/Service Topics")
-                                for product_data in data["productBasedTopics"]:
-                                    create_topic_group(product_data.get('productName'), product_data.get('funnels', []), 'Product/Service')
-                            if data.get("timelyTopics"):
-                                st.subheader("2. Timely & Event-Based Topics")
-                                for event_data in data["timelyTopics"]:
-                                    create_topic_group(event_data.get('eventName'), event_data.get('funnels', []), 'Event/Holiday')
+                                if data.get("productBasedTopics"):
+                                    st.subheader("1. Product/Service Topics")
+                                    for product_data in data["productBasedTopics"]:
+                                        create_topic_group(product_data.get('productName'), product_data.get('funnels', []), 'Product/Service')
+                                if data.get("timelyTopics"):
+                                    st.subheader("2. Timely & Event-Based Topics")
+                                    for event_data in data["timelyTopics"]:
+                                        create_topic_group(event_data.get('eventName'), event_data.get('funnels', []), 'Event/Holiday')
                         else:
-                            st.error("No content received from API.")
+                            results_placeholder.error("No content received from API.")
                     except (json.JSONDecodeError, IndexError, KeyError) as e:
-                        st.error(f"Failed to parse API response: {e}")
+                        results_placeholder.error(f"Failed to parse API response: {e}")
                 elif response:
                      try:
                          error_details = response.json()
-                         st.error(f"API request failed with status code: {response.status_code}.")
-                         st.json(error_details)
+                         results_placeholder.error(f"API request failed with status code: {response.status_code}.")
+                         results_placeholder.json(error_details)
                      except json.JSONDecodeError:
-                         st.error(f"API request failed with status code: {response.status_code}.")
+                         results_placeholder.error(f"API request failed with status code: {response.status_code}.")
 
