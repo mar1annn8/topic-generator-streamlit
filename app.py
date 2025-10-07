@@ -26,18 +26,18 @@ st.markdown("""
 This AI tool generates topic ideas based on the marketing funnel concepts from 
 [SEMRush](https://www.semrush.com/blog/content-marketing-funnel/) and 
 [Search Engine Land](https://searchengineland.com/how-to-drive-the-funnel-through-content-marketing-and-link-building-374343), 
-tailored to the client details provided.
+tailored to the business details provided.
 """)
 
 with st.expander("How to Start"):
     st.markdown("""
     **Option 1: Analyze a Website (Recommended)**
-    1.  Enter a client's website URL in the sidebar.
+    1.  Enter a business's website URL in the sidebar.
     2.  Click "Analyze Website".
-    3.  The tool will auto-fill the client details for you.
+    3.  The tool will auto-fill the business details for you.
 
     **Option 2: Enter Details Manually**
-    - Skip the website analysis and fill in the client details in the sidebar directly. Use field 5 for complete guidelines.
+    - Skip the website analysis and fill in the business details in the sidebar directly. Use field 5 for complete guidelines.
     """)
 
 
@@ -46,25 +46,25 @@ with st.expander("How to Use This Tool"):
     **This document provides a step-by-step guide on how to effectively use the Topic Generator tool to create strategic guest post topics for link-building outreach.**
 
     **1. Understand the Tool's Purpose**
-    The Topic Generator is an AI-powered tool designed to produce relevant, high-quality topic ideas. It analyzes client information and aligns suggestions with the marketing funnel stages:
+    The Topic Generator is an AI-powered tool designed to produce relevant, high-quality topic ideas. It analyzes business information and aligns suggestions with the marketing funnel stages:
     - **Top of the Funnel (ToFu):** Building awareness.
     - **Middle of the Funnel (MoFu):** Encouraging consideration.
     - **Bottom of the Funnel (BoFu):** Driving decisions.
 
     The methodology is based on content strategy principles from leading industry resources like SEMRush and Search Engine Land.
 
-    **2. Provide Client Details**
-    The tool works by analyzing text to understand the client's needs. For the best results, follow this primary step:
-    - **Paste Full Guidelines into Field 5:** The most effective way to use the generator is to paste the client's complete copywriting guidelines or any other detailed brand document into the text box labeled **"5. Full Copywriting Guidelines / Additional Context."** The AI will analyze this entire document to extract the industry, tone, audiences, and products.
+    **2. Provide Business Details**
+    The tool works by analyzing text to understand the business's needs. For the best results, follow this primary step:
+    - **Paste Full Guidelines into Field 5:** The most effective way to use the generator is to paste the business's complete copywriting guidelines or any other detailed brand document into the text box labeled **"5. Full Copywriting Guidelines / Additional Context."** The AI will analyze this entire document to extract the industry, tone, audiences, and products.
 
     The other fields (1-4) are optional and can be used to add specific details or clarify information if the main document in field 5 is incomplete.
 
     **3. Generate the Topics**
-    Once the client information is entered, click the **"Generate Topics"** button. A loader will appear while the AI processes the request. This may take a few moments.
+    Once the business information is entered, click the **"Generate Topics"** button. A loader will appear while the AI processes the request. This may take a few moments.
 
     **4. Review and Understand the Output**
     The generated topics are organized into two main sections:
-    - **Section 1: Product/Service Topics:** Contains ideas directly related to the client's offerings.
+    - **Section 1: Product/Service Topics:** Contains ideas directly related to the business's offerings.
     - **Section 2: Timely & Event-Based Topics:** Provides ideas relevant to the current date, including upcoming holidays, seasons, or important industry events.
 
     Each section follows a clear structure:
@@ -81,7 +81,7 @@ with st.expander("How to Use This Tool"):
     **Tips for Best Results**
     - **Prioritize Field 5:** Always try to use a comprehensive document in the main guidelines field for the most context-aware suggestions.
     - **Check for Specificity:** If the generated topics seem too general, add more specific details to the optional fields to help guide the AI.
-    - **Use as a Starting Point:** The generated ideas are a strong starting point. They should be reviewed by a strategist to ensure perfect alignment with the client's goals before outreach.
+    - **Use as a Starting Point:** The generated ideas are a strong starting point. They should be reviewed by a strategist to ensure perfect alignment with the business's goals before outreach.
     """)
 
 with st.expander("How to Get a Google AI API Key"):
@@ -117,30 +117,22 @@ if 'analyzed_url' not in st.session_state: st.session_state.analyzed_url = ""
 
 
 # --- Sidebar Inputs ---
-with st.sidebar.expander("Configuration & Inputs", expanded=True):
-    st.subheader("Configuration")
+with st.sidebar.expander("1. Google API Key", expanded=True):
     api_key_input = st.text_input("Enter Google API Key", type="password", help="Your key is saved for the current session.", value=st.session_state.api_key)
-    st.session_state.api_key = api_key_input # Update state with current input
+    st.session_state.api_key = api_key_input
 
-    st.divider()
-
-    st.subheader("Client Website Analysis")
+with st.sidebar.expander("2. Website Analysis", expanded=True):
     website_url = st.text_input("Enter Website URL")
     analyze_btn = st.button("Analyze Website")
 
-
-    st.divider()
-    st.subheader("Client Details")
+with st.sidebar.expander("3. Business Details", expanded=True):
     st.info("Review or edit the details below before generating topics.")
-
-    st.text_input("1. Client Industry/Niche", placeholder="Auto-filled by analysis", key="industry")
+    st.text_input("1. Business Industry/Niche", placeholder="Auto-filled by analysis", key="industry")
     st.text_input("2. Branding Tone/Voice", placeholder="Auto-filled by analysis", key="tone")
     st.text_area("3. Target Audience", placeholder="Auto-filled by analysis", key="audience_input")
     st.text_area("4. Product/Service to Highlight", placeholder="Auto-filled by analysis", key="product_input")
     st.text_area("5. Full Copywriting Guidelines / Additional Context", placeholder="Auto-filled by analysis", key="guidelines")
-
     st.divider()
-    
     generate_btn = st.button("Generate Topics", type="primary")
 
 # --- Functions ---
@@ -157,18 +149,18 @@ def scrape_website(url):
             script.extract()
             
         text = soup.get_text(separator='\n', strip=True)
-        return text[:15000], None # Limit text to avoid overly large API requests
+        return text[:15000], None
     except requests.RequestException as e:
         return None, f"Failed to fetch website content: {e}"
 
 def analyze_scraped_text(api_key, text):
-    """Uses AI to analyze scraped text and extract client details."""
+    """Uses AI to analyze scraped text and extract business details."""
     system_prompt = """You are an expert marketing analyst. Analyze the provided website text and extract the following information. Be concise and summarize the findings. If information isn't present, state 'Not found'.
-    - **Target Audience and Pain Points:** The specific groups of people the client wants to reach and the problems they face.
+    - **Target Audience and Pain Points:** The specific groups of people the business wants to reach and the problems they face.
     - **Business Services and/or Products:** The specific offerings that solve the audience's pain points.
     - **Target Location:** The primary geographical market (e.g., USA, California, Global).
-    - **Industry/Niche:** The specific market the client operates in.
-    - **Branding Tone/Voice:** The style and personality of the client's communication.
+    - **Industry/Niche:** The specific market the business operates in.
+    - **Branding Tone/Voice:** The style and personality of the business's communication.
     - **Branding Guidelines Summary:** Summarize any core messaging or branding principles evident from the text."""
     
     schema = {
@@ -212,7 +204,7 @@ def fetch_with_retry(url, options, retries=3):
     for i in range(retries):
         try:
             response = requests.post(url, headers=options['headers'], data=options['body'], timeout=60)
-            if response.status_code < 500:  # Success or client error
+            if response.status_code < 500:
                 return response, None
         except requests.exceptions.RequestException as e:
             if i == retries - 1:
@@ -295,18 +287,18 @@ if generate_btn:
         has_other_details = bool(industry or tone or audience_input or product_input)
 
         if not has_guidelines and not has_other_details:
-            st.sidebar.error("Please provide client details by analyzing a website or entering them manually.")
+            st.sidebar.error("Please provide business details by analyzing a website or entering them manually.")
         else:
             with st.spinner("Generating topics... This may take up to a minute."):
                 current_date = datetime.now().strftime('%B %d, %Y')
                 
-                system_prompt = """You are a strategic content and marketing analyst. Your task is to generate two distinct sets of guest post topics based on the provided client details and the current date. The topic generation must be guided by the marketing funnel principles (ToFu, MoFu, BoFu).
+                system_prompt = """You are a strategic content and marketing analyst. Your task is to generate two distinct sets of guest post topics based on the provided business details and the current date. The topic generation must be guided by the marketing funnel principles (ToFu, MoFu, BoFu).
 
-                First, analyze the provided text (which may be copywriting guidelines or a collection of details) to extract the client's industry, tone, target audiences, and products/services. When you identify a product, service, or event, summarize it into a short, clear name (e.g., "AI Security Solution" or "Annual Tech Conference") for the `productName` or `eventName` field. Do not use the entire descriptive text from the input.
+                First, analyze the provided text (which may be copywriting guidelines or a collection of details) to extract the business's industry, tone, target audiences, and products/services. When you identify a product, service, or event, summarize it into a short, clear name (e.g., "AI Security Solution" or "Annual Tech Conference") for the `productName` or `eventName` field. Do not use the entire descriptive text from the input.
 
                 Second, generate two sets of topics ensuring there are at least 3 topics per funnel stage for each audience and product/event:
-                1.  **Product-Based Topics:** Ideas directly related to the client's products/services.
-                2.  **Timely & Event-Based Topics:** Based on the 'Current Date' and the client's industry, identify relevant upcoming holidays, industry events, or seasonal business milestones and create topics for them.
+                1.  **Product-Based Topics:** Ideas directly related to the business's products/services.
+                2.  **Timely & Event-Based Topics:** Based on the 'Current Date' and the business's industry, identify relevant upcoming holidays, industry events, or seasonal business milestones and create topics for them.
 
                 For each generated topic, you must provide three elements:
                 - 'topic': A short, concise title (MAXIMUM 60 characters) that frames the product/service as a solution to a problem relevant to the funnel stage.
@@ -321,7 +313,6 @@ if generate_btn:
                 if has_guidelines:
                     user_query += f"Full Copywriting Guidelines:\n---\n{guidelines}\n---\n"
                     optional_inputs = {"Specific Industry/Niche": industry, "Specific Branding Tone/Voice": tone, "Specific Target Audiences": audience_input, "Specific Products/Services": product_input}
-                    # Only include optional details if they are different from the analyzed guidelines
                     if st.session_state.analysis_results:
                         optional_details = "\n".join([f"- {key}: {value}" for key, value in optional_inputs.items() if value and value != st.session_state.analysis_results.get(key.lower().replace('specific ', '').replace(' ', '_'))])
                     else:
@@ -330,96 +321,24 @@ if generate_btn:
                     if optional_details:
                         user_query += f"\nSupplemental Details from Optional Fields:\n{optional_details}"
                 else: 
-                    user_query += "Client Details:\n"
+                    user_query += "Business Details:\n"
                     primary_inputs = {"Industry/Niche": industry, "Branding Tone/Voice": tone, "Target Audiences": audience_input, "Products/Services to Highlight": product_input}
                     primary_details = "\n".join([f"- {key}: {value}" for key, value in primary_inputs.items() if value])
                     user_query += primary_details
 
-                # Corrected and properly formatted schema
-                topic_properties = {
-                    "type": "OBJECT",
-                    "properties": {
-                        "topic": {"type": "STRING"},
-                        "suggestedHeadline": {"type": "STRING"},
-                        "rationale": {"type": "STRING"}
-                    },
-                    "required": ["topic", "suggestedHeadline", "rationale"]
-                }
-
-                publication_properties = {
-                    "type": "OBJECT",
-                    "properties": {
-                        "publicationNiche": {"type": "STRING"},
-                        "topics": {"type": "ARRAY", "items": topic_properties}
-                    },
-                    "required": ["publicationNiche", "topics"]
-                }
-
-                audience_properties = {
-                    "type": "OBJECT",
-                    "properties": {
-                        "audienceName": {"type": "STRING"},
-                        "publications": {"type": "ARRAY", "items": publication_properties}
-                    },
-                    "required": ["audienceName", "publications"]
-                }
-
-                funnel_properties = {
-                    "type": "OBJECT",
-                    "properties": {
-                        "funnelStage": {"type": "STRING", "enum": ["ToFu", "MoFu", "BoFu"]},
-                        "audiences": {"type": "ARRAY", "items": audience_properties}
-                    },
-                    "required": ["funnelStage", "audiences"]
-                }
-
-                product_based_topics_properties = {
-                    "type": "ARRAY",
-                    "items": {
-                        "type": "OBJECT",
-                        "properties": {
-                            "productName": {
-                                "type": "STRING",
-                                "description": "A short, summarized name for the product/service (e.g., 'AI Security Solution'). Do not use the full descriptive text from the input."
-                            },
-                            "funnels": {"type": "ARRAY", "items": funnel_properties}
-                        },
-                        "required": ["productName", "funnels"]
-                    }
-                }
-
-                timely_topics_properties = {
-                    "type": "ARRAY",
-                    "items": {
-                        "type": "OBJECT",
-                        "properties": {
-                            "eventName": {
-                                "type": "STRING",
-                                "description": "A short, summarized name for the event or holiday (e.g., 'Q4 Sales Kickoff' or 'Cyber Monday')."
-                            },
-                            "funnels": {"type": "ARRAY", "items": funnel_properties}
-                        },
-                        "required": ["eventName", "funnels"]
-                    }
-                }
-
-                schema = {
-                    "type": "OBJECT",
-                    "properties": {
-                        "productBasedTopics": product_based_topics_properties,
-                        "timelyTopics": timely_topics_properties
-                    },
-                    "required": ["productBasedTopics", "timelyTopics"]
-                }
-
+                topic_properties = {"type": "OBJECT", "properties": {"topic": {"type": "STRING"}, "suggestedHeadline": {"type": "STRING"}, "rationale": {"type": "STRING"}}, "required": ["topic", "suggestedHeadline", "rationale"]}
+                publication_properties = {"type": "OBJECT", "properties": {"publicationNiche": {"type": "STRING"}, "topics": {"type": "ARRAY", "items": topic_properties}}, "required": ["publicationNiche", "topics"]}
+                audience_properties = {"type": "OBJECT", "properties": {"audienceName": {"type": "STRING"}, "publications": {"type": "ARRAY", "items": publication_properties}}, "required": ["audienceName", "publications"]}
+                funnel_properties = {"type": "OBJECT", "properties": {"funnelStage": {"type": "STRING", "enum": ["ToFu", "MoFu", "BoFu"]}, "audiences": {"type": "ARRAY", "items": audience_properties}}, "required": ["funnelStage", "audiences"]}
+                product_based_topics_properties = {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"productName": {"type": "STRING", "description": "A short, summarized name for the product/service (e.g., 'AI Security Solution')."}, "funnels": {"type": "ARRAY", "items": funnel_properties}}, "required": ["productName", "funnels"]}}
+                timely_topics_properties = {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"eventName": {"type": "STRING", "description": "A short, summarized name for the event or holiday (e.g., 'Q4 Sales Kickoff')."}, "funnels": {"type": "ARRAY", "items": funnel_properties}}, "required": ["eventName", "funnels"]}}
+                schema = {"type": "OBJECT", "properties": {"productBasedTopics": product_based_topics_properties, "timelyTopics": timely_topics_properties}, "required": ["productBasedTopics", "timelyTopics"]}
 
                 api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key={api_key}"
                 payload = {"contents": [{"parts": [{"text": user_query}]}], "systemInstruction": {"parts": [{"text": system_prompt}]}, "generationConfig": {"responseMimeType": "application/json", "responseSchema": schema}}
                 options = {'headers': {'Content-Type': 'application/json'}, 'body': json.dumps(payload)}
                 
                 response, error_msg = fetch_with_retry(api_url, options)
-
-                # Initialize a placeholder for the results in the main window
                 results_placeholder = st.empty()
 
                 if error_msg:
@@ -430,10 +349,8 @@ if generate_btn:
                         text_content = result.get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', '')
                         if text_content:
                             data = json.loads(text_content)
-                            
                             with results_placeholder.container():
                                 st.header("Generated Topics", divider="rainbow")
-                                
                                 if st.session_state.get('analysis_results'):
                                     st.subheader("Website Analysis Summary")
                                     with st.container(border=True):
