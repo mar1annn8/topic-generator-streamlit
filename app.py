@@ -331,37 +331,79 @@ if generate_btn:
                     primary_details = "\n".join([f"- {key}: {value}" for key, value in primary_inputs.items() if value])
                     user_query += primary_details
 
+                # Corrected and properly formatted schema
+                topic_properties = {
+                    "type": "OBJECT",
+                    "properties": {
+                        "topic": {"type": "STRING"},
+                        "suggestedHeadline": {"type": "STRING"},
+                        "rationale": {"type": "STRING"}
+                    },
+                    "required": ["topic", "suggestedHeadline", "rationale"]
+                }
+
+                publication_properties = {
+                    "type": "OBJECT",
+                    "properties": {
+                        "publicationNiche": {"type": "STRING"},
+                        "topics": {"type": "ARRAY", "items": topic_properties}
+                    },
+                    "required": ["publicationNiche", "topics"]
+                }
+
+                audience_properties = {
+                    "type": "OBJECT",
+                    "properties": {
+                        "audienceName": {"type": "STRING"},
+                        "publications": {"type": "ARRAY", "items": publication_properties}
+                    },
+                    "required": ["audienceName", "publications"]
+                }
+
+                funnel_properties = {
+                    "type": "OBJECT",
+                    "properties": {
+                        "funnelStage": {"type": "STRING", "enum": ["ToFu", "MoFu", "BoFu"]},
+                        "audiences": {"type": "ARRAY", "items": audience_properties}
+                    },
+                    "required": ["funnelStage", "audiences"]
+                }
+
+                product_based_topics_properties = {
+                    "type": "ARRAY",
+                    "items": {
+                        "type": "OBJECT",
+                        "properties": {
+                            "productName": {
+                                "type": "STRING",
+                                "description": "A short, summarized name for the product/service (e.g., 'AI Security Solution'). Do not use the full descriptive text from the input."
+                            },
+                            "funnels": {"type": "ARRAY", "items": funnel_properties}
+                        },
+                        "required": ["productName", "funnels"]
+                    }
+                }
+
+                timely_topics_properties = {
+                    "type": "ARRAY",
+                    "items": {
+                        "type": "OBJECT",
+                        "properties": {
+                            "eventName": {
+                                "type": "STRING",
+                                "description": "A short, summarized name for the event or holiday (e.g., 'Q4 Sales Kickoff' or 'Cyber Monday')."
+                            },
+                            "funnels": {"type": "ARRAY", "items": funnel_properties}
+                        },
+                        "required": ["eventName", "funnels"]
+                    }
+                }
+
                 schema = {
                     "type": "OBJECT",
                     "properties": {
-                        "productBasedTopics": {
-                            "type": "ARRAY",
-                            "items": {
-                                "type": "OBJECT",
-                                "properties": {
-                                    "productName": {
-                                        "type": "STRING",
-                                        "description": "A short, summarized name for the product/service (e.g., 'AI Security Solution'). Do not use the full descriptive text from the input."
-                                    },
-                                    "funnels": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": { "funnelStage": {"type": "STRING", "enum": ["ToFu", "MoFu", "BoFu"]}, "audiences": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": { "audienceName": {"type": "STRING"}, "publications": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": { "publicationNiche": {"type": "STRING"}, "topics": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": { "topic": {"type": "STRING"}, "suggestedHeadline": {"type": "STRING"}, "rationale": {"type": "STRING"} }, "required": ["topic", "suggestedHeadline", "rationale"] } } } }, "required": ["publicationNiche", "topics"] } } } }, "required": ["audienceName", "publications"] } } } }, "required": ["funnelStage", "audiences"] } } }
-                                },
-                                "required": ["productName", "funnels"]
-                            }
-                        },
-                        "timelyTopics": {
-                            "type": "ARRAY",
-                            "items": {
-                                "type": "OBJECT",
-                                "properties": {
-                                    "eventName": {
-                                        "type": "STRING",
-                                        "description": "A short, summarized name for the event or holiday (e.g., 'Q4 Sales Kickoff' or 'Cyber Monday')."
-                                    },
-                                    "funnels": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": { "funnelStage": {"type": "STRING", "enum": ["ToFu", "MoFu", "BoFu"]}, "audiences": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": { "audienceName": {"type": "STRING"}, "publications": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": { "publicationNiche": {"type": "STRING"}, "topics": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": { "topic": {"type": "STRING"}, "suggestedHeadline": {"type": "STRING"}, "rationale": {"type": "STRING"} }, "required": ["topic", "suggestedHeadline", "rationale"] } } } }, "required": ["publicationNiche", "topics"] } } } }, "required": ["audienceName", "publications"] } } } }, "required": ["funnelStage", "audiences"] } } }
-                                },
-                                "required": ["eventName", "funnels"]
-                            }
-                        }
+                        "productBasedTopics": product_based_topics_properties,
+                        "timelyTopics": timely_topics_properties
                     },
                     "required": ["productBasedTopics", "timelyTopics"]
                 }
