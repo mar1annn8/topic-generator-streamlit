@@ -94,6 +94,7 @@ with st.expander("How to Get a Google AI API Key"):
     """)
 
 # --- Initialize Session State ---
+if 'api_key' not in st.session_state: st.session_state.api_key = ""
 if 'industry' not in st.session_state: st.session_state.industry = ""
 if 'tone' not in st.session_state: st.session_state.tone = ""
 if 'audience_input' not in st.session_state: st.session_state.audience_input = ""
@@ -105,23 +106,36 @@ if 'analyzed_url' not in st.session_state: st.session_state.analyzed_url = ""
 
 # --- Sidebar Inputs ---
 st.sidebar.header("Configuration")
-api_key_input = st.sidebar.text_input("Enter Google API Key", type="password", help="Get a key using the instructions in the main panel.")
+api_key_input = st.sidebar.text_input("Enter Google API Key", type="password", help="Your key is saved for the current session.", value=st.session_state.api_key)
+st.session_state.api_key = api_key_input # Update state with current input
+
 st.sidebar.divider()
 
-st.sidebar.header("Client Website Analysis")
-website_url = st.sidebar.text_input("Enter Client Website URL (Optional)")
+st.sidebar.header("How to Start")
+st.sidebar.markdown("""
+**Option 1: Analyze a Website (Recommended)**
+1.  Enter a client's website URL below.
+2.  Click "Analyze Website".
+3.  The tool will auto-fill the client details for you.
+
+**Option 2: Enter Details Manually**
+- Skip the website analysis and fill in the client details directly. Use field 5 for complete guidelines.
+""")
+
+st.sidebar.subheader("Client Website Analysis")
+website_url = st.sidebar.text_input("Enter Client Website URL")
 analyze_btn = st.sidebar.button("Analyze Website")
 
 
 st.sidebar.divider()
 st.sidebar.header("Client Details")
-st.sidebar.info("Fill out field 5 OR fields 1-4 for the best results.")
+st.sidebar.info("Review or edit the details below before generating topics.")
 
-st.sidebar.text_input("1. Client Industry/Niche (Optional)", placeholder="e.g., B2B SaaS for project management", key="industry")
-st.sidebar.text_input("2. Branding Tone/Voice (Optional)", placeholder="e.g., Authoritative, yet approachable", key="tone")
-st.sidebar.text_area("3. Target Audience (Optional)", placeholder="e.g., Marketing managers in tech startups, Freelance project managers", key="audience_input")
-st.sidebar.text_area("4. Product/Service to Highlight (Optional)", placeholder="e.g., https://my-saas.com/ai-feature OR Annual conference", key="product_input")
-st.sidebar.text_area("5. Full Copywriting Guidelines / Additional Context", placeholder="Paste the full copywriting guidelines document here...", key="guidelines")
+st.sidebar.text_input("1. Client Industry/Niche", placeholder="Auto-filled by analysis", key="industry")
+st.sidebar.text_input("2. Branding Tone/Voice", placeholder="Auto-filled by analysis", key="tone")
+st.sidebar.text_area("3. Target Audience", placeholder="Auto-filled by analysis", key="audience_input")
+st.sidebar.text_area("4. Product/Service to Highlight", placeholder="Auto-filled by analysis", key="product_input")
+st.sidebar.text_area("5. Full Copywriting Guidelines / Additional Context", placeholder="Auto-filled by analysis", key="guidelines")
 
 generate_btn = st.sidebar.button("Generate Topics", type="primary")
 
@@ -233,7 +247,7 @@ def create_topic_group(group_name, funnels, group_label):
 
 # Website Analysis Logic
 if analyze_btn:
-    api_key = api_key_input or st.secrets.get("GOOGLE_API_KEY")
+    api_key = st.session_state.get("api_key") or st.secrets.get("GOOGLE_API_KEY")
     if not api_key:
         st.error("Please enter your Google API Key to analyze the website.")
     elif not website_url:
@@ -256,15 +270,16 @@ if analyze_btn:
                     st.session_state.audience_input = analysis.get('target_audience_pain_points', '')
                     st.session_state.product_input = analysis.get('services_and_products', '')
                     st.session_state.guidelines = analysis.get('guidelines', '')
-                    st.success("Website analyzed and fields populated!")
+                    st.success("Website analyzed!")
+                    st.sidebar.info("Review the auto-filled details below and click 'Generate Topics', or edit them for more specific results.")
 
 
 # Topic Generation Logic
 if generate_btn:
-    api_key = api_key_input or st.secrets.get("GOOGLE_API_KEY")
+    api_key = st.session_state.get("api_key") or st.secrets.get("GOOGLE_API_KEY")
 
     if not api_key:
-        st.error("Google API Key not found. Please enter it in the sidebar or add it to your Streamlit secrets.")
+        st.error("Google API Key not found. Please enter it in the sidebar.")
     else:
         guidelines = st.session_state.guidelines
         industry = st.session_state.industry
@@ -276,7 +291,7 @@ if generate_btn:
         has_other_details = bool(industry or tone or audience_input or product_input)
 
         if not has_guidelines and not has_other_details:
-            st.sidebar.error("Please provide client details in field 5, in fields 1-4, or by analyzing a website.")
+            st.sidebar.error("Please provide client details by analyzing a website or entering them manually.")
         else:
             with st.spinner("Generating topics... This may take up to a minute."):
                 current_date = datetime.now().strftime('%B %d, %Y')
@@ -302,7 +317,12 @@ if generate_btn:
                 if has_guidelines:
                     user_query += f"Full Copywriting Guidelines:\n---\n{guidelines}\n---\n"
                     optional_inputs = {"Specific Industry/Niche": industry, "Specific Branding Tone/Voice": tone, "Specific Target Audiences": audience_input, "Specific Products/Services": product_input}
-                    optional_details = "\n".join([f"- {key}: {value}" for key, value in optional_inputs.items() if value and value != st.session_state.get(key.lower().replace(' ', '_').split(':_')[-1])])
+                    # Only include optional details if they are different from the analyzed guidelines
+                    if st.session_state.analysis_results:
+                        optional_details = "\n".join([f"- {key}: {value}" for key, value in optional_inputs.items() if value and value != st.session_state.analysis_results.get(key.lower().replace('specific ', '').replace(' ', '_'))])
+                    else:
+                        optional_details = "\n".join([f"- {key}: {value}" for key, value in optional_inputs.items() if value])
+
                     if optional_details:
                         user_query += f"\nSupplemental Details from Optional Fields:\n{optional_details}"
                 else: 
@@ -311,8 +331,6 @@ if generate_btn:
                     primary_details = "\n".join([f"- {key}: {value}" for key, value in primary_inputs.items() if value])
                     user_query += primary_details
 
-
-                # Corrected and formatted schema
                 schema = {
                     "type": "OBJECT",
                     "properties": {
@@ -325,48 +343,7 @@ if generate_btn:
                                         "type": "STRING",
                                         "description": "A short, summarized name for the product/service (e.g., 'AI Security Solution'). Do not use the full descriptive text from the input."
                                     },
-                                    "funnels": {
-                                        "type": "ARRAY",
-                                        "items": {
-                                            "type": "OBJECT",
-                                            "properties": {
-                                                "funnelStage": {"type": "STRING", "enum": ["ToFu", "MoFu", "BoFu"]},
-                                                "audiences": {
-                                                    "type": "ARRAY",
-                                                    "items": {
-                                                        "type": "OBJECT",
-                                                        "properties": {
-                                                            "audienceName": {"type": "STRING"},
-                                                            "publications": {
-                                                                "type": "ARRAY",
-                                                                "items": {
-                                                                    "type": "OBJECT",
-                                                                    "properties": {
-                                                                        "publicationNiche": {"type": "STRING"},
-                                                                        "topics": {
-                                                                            "type": "ARRAY",
-                                                                            "items": {
-                                                                                "type": "OBJECT",
-                                                                                "properties": {
-                                                                                    "topic": {"type": "STRING"},
-                                                                                    "suggestedHeadline": {"type": "STRING"},
-                                                                                    "rationale": {"type": "STRING"}
-                                                                                },
-                                                                                "required": ["topic", "suggestedHeadline", "rationale"]
-                                                                            }
-                                                                        }
-                                                                    },
-                                                                    "required": ["publicationNiche", "topics"]
-                                                                }
-                                                            }
-                                                        },
-                                                        "required": ["audienceName", "publications"]
-                                                    }
-                                                }
-                                            },
-                                            "required": ["funnelStage", "audiences"]
-                                        }
-                                    }
+                                    "funnels": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": { "funnelStage": {"type": "STRING", "enum": ["ToFu", "MoFu", "BoFu"]}, "audiences": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": { "audienceName": {"type": "STRING"}, "publications": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": { "publicationNiche": {"type": "STRING"}, "topics": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": { "topic": {"type": "STRING"}, "suggestedHeadline": {"type": "STRING"}, "rationale": {"type": "STRING"} }, "required": ["topic", "suggestedHeadline", "rationale"] } } } }, "required": ["publicationNiche", "topics"] } } } }, "required": ["audienceName", "publications"] } } } }, "required": ["funnelStage", "audiences"] } } }
                                 },
                                 "required": ["productName", "funnels"]
                             }
@@ -380,48 +357,7 @@ if generate_btn:
                                         "type": "STRING",
                                         "description": "A short, summarized name for the event or holiday (e.g., 'Q4 Sales Kickoff' or 'Cyber Monday')."
                                     },
-                                    "funnels": {
-                                        "type": "ARRAY",
-                                        "items": {
-                                            "type": "OBJECT",
-                                            "properties": {
-                                                "funnelStage": {"type": "STRING", "enum": ["ToFu", "MoFu", "BoFu"]},
-                                                "audiences": {
-                                                    "type": "ARRAY",
-                                                    "items": {
-                                                        "type": "OBJECT",
-                                                        "properties": {
-                                                            "audienceName": {"type": "STRING"},
-                                                            "publications": {
-                                                                "type": "ARRAY",
-                                                                "items": {
-                                                                    "type": "OBJECT",
-                                                                    "properties": {
-                                                                        "publicationNiche": {"type": "STRING"},
-                                                                        "topics": {
-                                                                            "type": "ARRAY",
-                                                                            "items": {
-                                                                                "type": "OBJECT",
-                                                                                "properties": {
-                                                                                    "topic": {"type": "STRING"},
-                                                                                    "suggestedHeadline": {"type": "STRING"},
-                                                                                    "rationale": {"type": "STRING"}
-                                                                                },
-                                                                                "required": ["topic", "suggestedHeadline", "rationale"]
-                                                                            }
-                                                                        }
-                                                                    },
-                                                                    "required": ["publicationNiche", "topics"]
-                                                                }
-                                                            }
-                                                        },
-                                                        "required": ["audienceName", "publications"]
-                                                    }
-                                                }
-                                            },
-                                            "required": ["funnelStage", "audiences"]
-                                        }
-                                    }
+                                    "funnels": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": { "funnelStage": {"type": "STRING", "enum": ["ToFu", "MoFu", "BoFu"]}, "audiences": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": { "audienceName": {"type": "STRING"}, "publications": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": { "publicationNiche": {"type": "STRING"}, "topics": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": { "topic": {"type": "STRING"}, "suggestedHeadline": {"type": "STRING"}, "rationale": {"type": "STRING"} }, "required": ["topic", "suggestedHeadline", "rationale"] } } } }, "required": ["publicationNiche", "topics"] } } } }, "required": ["audienceName", "publications"] } } } }, "required": ["funnelStage", "audiences"] } } }
                                 },
                                 "required": ["eventName", "funnels"]
                             }
@@ -429,6 +365,7 @@ if generate_btn:
                     },
                     "required": ["productBasedTopics", "timelyTopics"]
                 }
+
 
                 api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key={api_key}"
                 payload = {"contents": [{"parts": [{"text": user_query}]}], "systemInstruction": {"parts": [{"text": system_prompt}]}, "generationConfig": {"responseMimeType": "application/json", "responseSchema": schema}}
@@ -446,7 +383,6 @@ if generate_btn:
                             data = json.loads(text_content)
                             st.header("Generated Topics", divider="rainbow")
                             
-                            # Display Analysis Summary if it exists
                             if st.session_state.get('analysis_results'):
                                 st.subheader("Website Analysis Summary")
                                 with st.container(border=True):
