@@ -2,6 +2,7 @@ import streamlit as st
 import requests
 import json
 from datetime import datetime
+from bs4 import BeautifulSoup
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -92,23 +93,101 @@ with st.expander("How to Get a Google AI API Key"):
     - Paste this key into the **"Enter Google API Key"** field in the Topic Generator's sidebar.
     """)
 
+# --- Initialize Session State ---
+if 'industry' not in st.session_state: st.session_state.industry = ""
+if 'tone' not in st.session_state: st.session_state.tone = ""
+if 'audience_input' not in st.session_state: st.session_state.audience_input = ""
+if 'product_input' not in st.session_state: st.session_state.product_input = ""
+if 'guidelines' not in st.session_state: st.session_state.guidelines = ""
+if 'analysis_results' not in st.session_state: st.session_state.analysis_results = None
+if 'analyzed_url' not in st.session_state: st.session_state.analyzed_url = ""
+
+
 # --- Sidebar Inputs ---
 st.sidebar.header("Configuration")
 api_key_input = st.sidebar.text_input("Enter Google API Key", type="password", help="Get a key using the instructions in the main panel.")
 st.sidebar.divider()
 
+st.sidebar.header("Client Website Analysis")
+website_url = st.sidebar.text_input("Enter Client Website URL (Optional)")
+analyze_btn = st.sidebar.button("Analyze Website")
+
+
+st.sidebar.divider()
 st.sidebar.header("Client Details")
 st.sidebar.info("Fill out field 5 OR fields 1-4 for the best results.")
 
-industry = st.sidebar.text_input("1. Client Industry/Niche (Optional)", placeholder="e.g., B2B SaaS for project management")
-tone = st.sidebar.text_input("2. Branding Tone/Voice (Optional)", placeholder="e.g., Authoritative, yet approachable")
-audience_input = st.sidebar.text_area("3. Target Audience (Optional)", placeholder="e.g., Marketing managers in tech startups, Freelance project managers")
-product_input = st.sidebar.text_area("4. Product/Service to Highlight (Optional)", placeholder="e.g., https://my-saas.com/ai-feature OR Annual conference")
-guidelines = st.sidebar.text_area("5. Full Copywriting Guidelines / Additional Context", placeholder="Paste the full copywriting guidelines document here...")
+st.sidebar.text_input("1. Client Industry/Niche (Optional)", placeholder="e.g., B2B SaaS for project management", key="industry")
+st.sidebar.text_input("2. Branding Tone/Voice (Optional)", placeholder="e.g., Authoritative, yet approachable", key="tone")
+st.sidebar.text_area("3. Target Audience (Optional)", placeholder="e.g., Marketing managers in tech startups, Freelance project managers", key="audience_input")
+st.sidebar.text_area("4. Product/Service to Highlight (Optional)", placeholder="e.g., https://my-saas.com/ai-feature OR Annual conference", key="product_input")
+st.sidebar.text_area("5. Full Copywriting Guidelines / Additional Context", placeholder="Paste the full copywriting guidelines document here...", key="guidelines")
 
 generate_btn = st.sidebar.button("Generate Topics", type="primary")
 
-# --- Functions for API Call and Display ---
+# --- Functions ---
+
+def scrape_website(url):
+    """Scrapes the text content from a given URL."""
+    try:
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.content, 'html.parser')
+        
+        for script in soup(["script", "style"]):
+            script.extract()
+            
+        text = soup.get_text(separator='\n', strip=True)
+        return text[:15000], None # Limit text to avoid overly large API requests
+    except requests.RequestException as e:
+        return None, f"Failed to fetch website content: {e}"
+
+def analyze_scraped_text(api_key, text):
+    """Uses AI to analyze scraped text and extract client details."""
+    system_prompt = """You are an expert marketing analyst. Analyze the provided website text and extract the following information. Be concise and summarize the findings. If information isn't present, state 'Not found'.
+    - **Target Audience and Pain Points:** The specific groups of people the client wants to reach and the problems they face.
+    - **Business Services and/or Products:** The specific offerings that solve the audience's pain points.
+    - **Target Location:** The primary geographical market (e.g., USA, California, Global).
+    - **Industry/Niche:** The specific market the client operates in.
+    - **Branding Tone/Voice:** The style and personality of the client's communication.
+    - **Branding Guidelines Summary:** Summarize any core messaging or branding principles evident from the text."""
+    
+    schema = {
+        "type": "OBJECT",
+        "properties": {
+            "target_audience_pain_points": {"type": "STRING"},
+            "services_and_products": {"type": "STRING"},
+            "target_location": {"type": "STRING"},
+            "industry": {"type": "STRING"},
+            "tone": {"type": "STRING"},
+            "guidelines": {"type": "STRING"}
+        },
+        "required": ["target_audience_pain_points", "services_and_products", "target_location", "industry", "tone", "guidelines"]
+    }
+    
+    api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key={api_key}"
+    payload = {
+        "contents": [{"parts": [{"text": text}]}],
+        "systemInstruction": {"parts": [{"text": system_prompt}]},
+        "generationConfig": {"responseMimeType": "application/json", "responseSchema": schema}
+    }
+    options = {'headers': {'Content-Type': 'application/json'}, 'body': json.dumps(payload)}
+    
+    response, error = fetch_with_retry(api_url, options)
+
+    if error:
+        return None, error
+    if response.status_code == 200:
+        try:
+            result = response.json()
+            analysis = json.loads(result['candidates'][0]['content']['parts'][0]['text'])
+            return analysis, None
+        except (json.JSONDecodeError, KeyError, IndexError) as e:
+            return None, f"Failed to parse analysis from AI: {e}"
+    else:
+        return None, f"AI analysis failed with status {response.status_code}: {response.text}"
+
 
 def fetch_with_retry(url, options, retries=3):
     """Retry logic for the API call with a timeout. Returns (response, error_message)."""
@@ -117,26 +196,18 @@ def fetch_with_retry(url, options, retries=3):
             response = requests.post(url, headers=options['headers'], data=options['body'], timeout=60)
             if response.status_code < 500:  # Success or client error
                 return response, None
-            # If server error (>=500), the loop will continue and retry
         except requests.exceptions.RequestException as e:
             if i == retries - 1:
-                # Last retry failed, return the error
-                error_msg = f"A network error occurred after multiple retries: {e}. This might be a temporary issue with the connection. Please try again in a few moments."
+                error_msg = f"A network error occurred: {e}. Please check the connection and try again."
                 return None, error_msg
-    # This part is reached if all retries on a 5xx error fail
-    error_msg = f"The server responded with an error (Status {response.status_code}) after multiple retries. Please try again later."
+    error_msg = f"The server responded with an error (Status {response.status_code}) after multiple retries."
     return None, error_msg
-
 
 def create_topic_group(group_name, funnels, group_label):
     """Renders a single group of topics (for a product or event)."""
     st.header(f"{group_label}: {group_name}", divider="gray")
     
-    funnel_map = {
-        "ToFu": ("ToFu (Awareness)", "blue"),
-        "MoFu": ("MoFu (Consideration)", "green"),
-        "BoFu": ("BoFu (Decision)", "red")
-    }
+    funnel_map = {"ToFu": ("ToFu (Awareness)", "blue"), "MoFu": ("MoFu (Consideration)", "green"), "BoFu": ("BoFu (Decision)", "red")}
     stage_order = { 'ToFu': 1, 'MoFu': 2, 'BoFu': 3 }
     
     sorted_funnels = sorted(funnels, key=lambda f: stage_order.get(f.get('funnelStage', ''), 0))
@@ -159,17 +230,53 @@ def create_topic_group(group_name, funnels, group_label):
 
 
 # --- Main Logic ---
+
+# Website Analysis Logic
+if analyze_btn:
+    api_key = api_key_input or st.secrets.get("GOOGLE_API_KEY")
+    if not api_key:
+        st.error("Please enter your Google API Key to analyze the website.")
+    elif not website_url:
+        st.error("Please enter a website URL to analyze.")
+    else:
+        with st.spinner("Scraping and analyzing website..."):
+            scraped_text, error = scrape_website(website_url)
+            if error:
+                st.error(error)
+            else:
+                analysis, error = analyze_scraped_text(api_key, scraped_text)
+                if error:
+                    st.error(error)
+                else:
+                    st.session_state.analysis_results = analysis
+                    st.session_state.analyzed_url = website_url
+                    
+                    st.session_state.industry = analysis.get('industry', '')
+                    st.session_state.tone = analysis.get('tone', '')
+                    st.session_state.audience_input = analysis.get('target_audience_pain_points', '')
+                    st.session_state.product_input = analysis.get('services_and_products', '')
+                    st.session_state.guidelines = analysis.get('guidelines', '')
+                    st.success("Website analyzed and fields populated!")
+
+
+# Topic Generation Logic
 if generate_btn:
     api_key = api_key_input or st.secrets.get("GOOGLE_API_KEY")
 
     if not api_key:
-        st.error("Google API Key not found. Please enter it in the sidebar or add it to your Streamlit secrets for deployed apps.")
+        st.error("Google API Key not found. Please enter it in the sidebar or add it to your Streamlit secrets.")
     else:
+        guidelines = st.session_state.guidelines
+        industry = st.session_state.industry
+        tone = st.session_state.tone
+        audience_input = st.session_state.audience_input
+        product_input = st.session_state.product_input
+
         has_guidelines = bool(guidelines)
         has_other_details = bool(industry or tone or audience_input or product_input)
 
         if not has_guidelines and not has_other_details:
-            st.sidebar.error("Please provide client details in field 5, or in fields 1-4.")
+            st.sidebar.error("Please provide client details in field 5, in fields 1-4, or by analyzing a website.")
         else:
             with st.spinner("Generating topics... This may take up to a minute."):
                 current_date = datetime.now().strftime('%B %d, %Y')
@@ -194,24 +301,13 @@ if generate_btn:
 
                 if has_guidelines:
                     user_query += f"Full Copywriting Guidelines:\n---\n{guidelines}\n---\n"
-                    # Add supplemental details if they exist
-                    optional_inputs = {
-                        "Specific Industry/Niche": industry,
-                        "Specific Branding Tone/Voice": tone,
-                        "Specific Target Audiences": audience_input,
-                        "Specific Products/Services": product_input
-                    }
-                    optional_details = "\n".join([f"- {key}: {value}" for key, value in optional_inputs.items() if value])
+                    optional_inputs = {"Specific Industry/Niche": industry, "Specific Branding Tone/Voice": tone, "Specific Target Audiences": audience_input, "Specific Products/Services": product_input}
+                    optional_details = "\n".join([f"- {key}: {value}" for key, value in optional_inputs.items() if value and value != st.session_state.get(key.lower().replace(' ', '_').split(':_')[-1])])
                     if optional_details:
                         user_query += f"\nSupplemental Details from Optional Fields:\n{optional_details}"
-                else: # No guidelines, use the other fields as the primary source
+                else: 
                     user_query += "Client Details:\n"
-                    primary_inputs = {
-                        "Industry/Niche": industry,
-                        "Branding Tone/Voice": tone,
-                        "Target Audiences": audience_input,
-                        "Products/Services to Highlight": product_input
-                    }
+                    primary_inputs = {"Industry/Niche": industry, "Branding Tone/Voice": tone, "Target Audiences": audience_input, "Products/Services to Highlight": product_input}
                     primary_details = "\n".join([f"- {key}: {value}" for key, value in primary_inputs.items() if value])
                     user_query += primary_details
 
@@ -219,132 +315,18 @@ if generate_btn:
                 schema = {
                     "type": "OBJECT",
                     "properties": {
-                        "productBasedTopics": {
-                            "type": "ARRAY",
-                            "items": {
-                                "type": "OBJECT",
-                                "properties": {
-                                    "productName": {
-                                        "type": "STRING",
-                                        "description": "A short, summarized name for the product/service (e.g., 'AI Security Solution'). Do not use the full descriptive text from the input."
-                                    },
-                                    "funnels": {
-                                        "type": "ARRAY",
-                                        "items": {
-                                            "type": "OBJECT",
-                                            "properties": {
-                                                "funnelStage": {"type": "STRING", "enum": ["ToFu", "MoFu", "BoFu"]},
-                                                "audiences": {
-                                                    "type": "ARRAY",
-                                                    "items": {
-                                                        "type": "OBJECT",
-                                                        "properties": {
-                                                            "audienceName": {"type": "STRING"},
-                                                            "publications": {
-                                                                "type": "ARRAY",
-                                                                "items": {
-                                                                    "type": "OBJECT",
-                                                                    "properties": {
-                                                                        "publicationNiche": {"type": "STRING"},
-                                                                        "topics": {
-                                                                            "type": "ARRAY",
-                                                                            "items": {
-                                                                                "type": "OBJECT",
-                                                                                "properties": {
-                                                                                    "topic": {"type": "STRING"},
-                                                                                    "suggestedHeadline": {"type": "STRING"},
-                                                                                    "rationale": {"type": "STRING"}
-                                                                                },
-                                                                                "required": ["topic", "suggestedHeadline", "rationale"]
-                                                                            }
-                                                                        }
-                                                                    },
-                                                                    "required": ["publicationNiche", "topics"]
-                                                                }
-                                                            }
-                                                        },
-                                                        "required": ["audienceName", "publications"]
-                                                    }
-                                                }
-                                            },
-                                            "required": ["funnelStage", "audiences"]
-                                        }
-                                    }
-                                },
-                                "required": ["productName", "funnels"]
-                            }
+                        "productBasedTopics": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": { "productName": { "type": "STRING", "description": "A short, summarized name for the product/service (e.g., 'AI Security Solution'). Do not use the full descriptive text from the input." }, "funnels": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": { "funnelStage": {"type": "STRING", "enum": ["ToFu", "MoFu", "BoFu"]}, "audiences": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": { "audienceName": {"type": "STRING"}, "publications": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": { "publicationNiche": {"type": "STRING"}, "topics": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": { "topic": {"type": "STRING"}, "suggestedHeadline": {"type": "STRING"}, "rationale": {"type": "STRING"} }, "required": ["topic", "suggestedHeadline", "rationale"] } } } }, "required": ["publicationNiche", "topics"] } } } }, "required": ["audienceName", "publications"] } } } }, "required": ["funnelStage", "audiences"] } } } }, "required": ["productName", "funnels"] } }
                         },
                         "timelyTopics": {
-                            "type": "ARRAY",
-                            "items": {
-                                "type": "OBJECT",
-                                "properties": {
-                                    "eventName": {
-                                        "type": "STRING",
-                                        "description": "A short, summarized name for the event or holiday (e.g., 'Q4 Sales Kickoff' or 'Cyber Monday')."
-                                    },
-                                    "funnels": {
-                                        "type": "ARRAY",
-                                        "items": {
-                                            "type": "OBJECT",
-                                            "properties": {
-                                                "funnelStage": {"type": "STRING", "enum": ["ToFu", "MoFu", "BoFu"]},
-                                                "audiences": {
-                                                    "type": "ARRAY",
-                                                    "items": {
-                                                        "type": "OBJECT",
-                                                        "properties": {
-                                                            "audienceName": {"type": "STRING"},
-                                                            "publications": {
-                                                                "type": "ARRAY",
-                                                                "items": {
-                                                                    "type": "OBJECT",
-                                                                    "properties": {
-                                                                        "publicationNiche": {"type": "STRING"},
-                                                                        "topics": {
-                                                                            "type": "ARRAY",
-                                                                            "items": {
-                                                                                "type": "OBJECT",
-                                                                                "properties": {
-                                                                                    "topic": {"type": "STRING"},
-                                                                                    "suggestedHeadline": {"type": "STRING"},
-                                                                                    "rationale": {"type": "STRING"}
-                                                                                },
-                                                                                "required": ["topic", "suggestedHeadline", "rationale"]
-                                                                            }
-                                                                        }
-                                                                    },
-                                                                    "required": ["publicationNiche", "topics"]
-                                                                }
-                                                            }
-                                                        },
-                                                        "required": ["audienceName", "publications"]
-                                                    }
-                                                }
-                                            },
-                                            "required": ["funnelStage", "audiences"]
-                                        }
-                                    }
-                                },
-                                "required": ["eventName", "funnels"]
-                            }
+                            "type": "ARRAY", "items": { "type": "OBJECT", "properties": { "eventName": { "type": "STRING", "description": "A short, summarized name for the event or holiday (e.g., 'Q4 Sales Kickoff' or 'Cyber Monday')." }, "funnels": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": { "funnelStage": {"type": "STRING", "enum": ["ToFu", "MoFu", "BoFu"]}, "audiences": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": { "audienceName": {"type": "STRING"}, "publications": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": { "publicationNiche": {"type": "STRING"}, "topics": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": { "topic": {"type": "STRING"}, "suggestedHeadline": {"type": "STRING"}, "rationale": {"type": "STRING"} }, "required": ["topic", "suggestedHeadline", "rationale"] } } } }, "required": ["publicationNiche", "topics"] } } } }, "required": ["audienceName", "publications"] } } } }, "required": ["funnelStage", "audiences"] } } } }, "required": ["eventName", "funnels"] } }
                         }
                     },
                     "required": ["productBasedTopics", "timelyTopics"]
                 }
 
                 api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key={api_key}"
-
-                payload = {
-                    "contents": [{"parts": [{"text": user_query}]}],
-                    "systemInstruction": {"parts": [{"text": system_prompt}]},
-                    "generationConfig": {"responseMimeType": "application/json", "responseSchema": schema}
-                }
-                
-                options = {
-                    'headers': {'Content-Type': 'application/json'},
-                    'body': json.dumps(payload)
-                }
+                payload = {"contents": [{"parts": [{"text": user_query}]}], "systemInstruction": {"parts": [{"text": system_prompt}]}, "generationConfig": {"responseMimeType": "application/json", "responseSchema": schema}}
+                options = {'headers': {'Content-Type': 'application/json'}, 'body': json.dumps(payload)}
                 
                 response, error_msg = fetch_with_retry(api_url, options)
 
@@ -354,30 +336,37 @@ if generate_btn:
                     try:
                         result = response.json()
                         text_content = result.get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', '')
-                        
                         if text_content:
                             data = json.loads(text_content)
                             st.header("Generated Topics", divider="rainbow")
                             
+                            # Display Analysis Summary if it exists
+                            if st.session_state.get('analysis_results'):
+                                st.subheader("Website Analysis Summary")
+                                with st.container(border=True):
+                                    analysis = st.session_state.analysis_results
+                                    st.markdown(f"**Website URL:** {st.session_state.get('analyzed_url', 'N/A')}")
+                                    st.markdown(f"**Target Audience and Pain Points:** {analysis.get('target_audience_pain_points', 'Not found')}")
+                                    st.markdown(f"**Business Services and/or Products:** {analysis.get('services_and_products', 'Not found')}")
+                                    st.markdown(f"**Target Location:** {analysis.get('target_location', 'Not found')}")
+
                             if data.get("productBasedTopics"):
                                 st.subheader("1. Product/Service Topics")
                                 for product_data in data["productBasedTopics"]:
                                     create_topic_group(product_data.get('productName'), product_data.get('funnels', []), 'Product/Service')
-                            
                             if data.get("timelyTopics"):
                                 st.subheader("2. Timely & Event-Based Topics")
                                 for event_data in data["timelyTopics"]:
                                     create_topic_group(event_data.get('eventName'), event_data.get('funnels', []), 'Event/Holiday')
                         else:
-                            st.error("No content received from the API. The model may not have been able to generate a valid response.")
+                            st.error("No content received from API.")
                     except (json.JSONDecodeError, IndexError, KeyError) as e:
-                        st.error(f"Failed to parse the API response. Please try again. Error: {e}")
+                        st.error(f"Failed to parse API response: {e}")
                 elif response:
-                     # Display the detailed error message from the API
                      try:
                          error_details = response.json()
                          st.error(f"API request failed with status code: {response.status_code}.")
                          st.json(error_details)
                      except json.JSONDecodeError:
-                         st.error(f"API request failed with status code: {response.status_code} and could not parse the error response.")
+                         st.error(f"API request failed with status code: {response.status_code}.")
 
