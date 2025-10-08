@@ -77,6 +77,8 @@ tailored to the business details provided.
 with st.expander("Instructions"):
     with st.expander("How to Use This Tool"):
         st.markdown("""
+        How to Use the Topic Generator Tool for Strategic Content Ideas
+
         This guide explains how to use the Topic Generator tool to create strong, pitch-ready content topics. These ideas can be used for articles, videos, infographics, or any format that fits your strategy.
 
         **1. Understand the Tool**
@@ -341,6 +343,8 @@ if st.session_state.get('analyze_btn_clicked', False):
                     st.rerun()
 
 with st.sidebar:
+    st.markdown("<h2 style='font-weight: bold;'>Settings</h2>", unsafe_allow_html=True)
+
     with st.expander("1. Google API Key", expanded=True):
         st.text_input("Enter Google API Key", type="password", help="Your key is saved for the current session.", key="api_key_input")
         if st.session_state.api_key_input: st.session_state.api_key = st.session_state.api_key_input
