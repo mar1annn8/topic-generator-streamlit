@@ -374,27 +374,31 @@ def export_to_gsheet(data, analysis_data, analyzed_url, email_address):
 
 
 # --- Sidebar Logic ---
-# This structure ensures that state updates from button clicks are handled at the start of the script run, before widgets are drawn.
-sidebar_placeholder = st.sidebar.empty()
-
-with sidebar_placeholder.container():
+with st.sidebar:
     with st.expander("1. Google API Key", expanded=True):
-        api_key_input = st.text_input("Enter Google API Key", type="password", help="Your key is saved for the current session.", key="api_key_input_widget")
-        if api_key_input: st.session_state.api_key = api_key_input
-
-        if st.button("Validate API Key"):
-            if st.session_state.api_key:
-                if validate_api_key(st.session_state.api_key):
-                    st.success("API Key is valid!")
+        st.text_input("Enter Google API Key", type="password", help="Your key is saved for the current session.", key="api_key")
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Validate"):
+                if st.session_state.api_key and validate_api_key(st.session_state.api_key):
+                    st.success("Valid!")
                 else:
-                    st.error("API Key is not valid.")
-            else:
-                st.warning("Please enter an API Key to validate.")
+                    st.error("Invalid!")
+        with col2:
+            if st.button("Clear", key="clear_api_key"):
+                st.session_state.api_key = ""
+                st.experimental_rerun()
 
     with st.expander("2. Website Analysis", expanded=True):
-        website_url_input = st.text_input("Enter Website URL", key="website_url")
-        if st.button("Analyze Website"):
-            st.session_state.analyze_btn_clicked = True
+        st.text_input("Enter Website URL", key="website_url")
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Analyze Website"):
+                st.session_state.analyze_btn_clicked = True
+        with col2:
+            if st.button("Clear", key="clear_website"):
+                st.session_state.website_url = ""
+                st.experimental_rerun()
     
     with st.expander("3. Business Details", expanded=True):
         st.info("Review or edit the details below.")
@@ -403,6 +407,13 @@ with sidebar_placeholder.container():
         st.text_area("Target Audience", key="audience_input")
         st.text_area("Product/Service to Highlight", key="product_input")
         st.text_area("Full Copywriting Guidelines", key="guidelines")
+        if st.button("Clear All Details"):
+            st.session_state.industry = ""
+            st.session_state.tone = ""
+            st.session_state.audience_input = ""
+            st.session_state.product_input = ""
+            st.session_state.guidelines = ""
+            st.experimental_rerun()
 
 
 # Website Analysis LOGIC
@@ -452,25 +463,100 @@ if st.button("Generate Topics", type="primary"):
     else:
         with st.spinner("Generating topics... This may take up to a minute."):
             current_date = datetime.now().strftime('%B %d, %Y')
-            system_prompt = "..." 
-            user_query = "..." 
-            schema = "..." 
-
-            # The rest of the generation logic is the same, omitted for brevity.
-            # This logic correctly reads from st.session_state
             
+            system_prompt = """You are a strategic content and marketing analyst. Your task is to generate two distinct sets of guest post topics based on the provided business details and the current date. The topic generation must be guided by the marketing funnel principles (ToFu, MoFu, BoFu).
+
+            First, analyze the provided text (which may be copywriting guidelines or a collection of details) to extract the business's industry, tone, target audiences, and products/services. When you identify a product, service, or event, summarize it into a short, clear name (e.g., "AI Security Solution" or "Annual Tech Conference") for the `productName` or `eventName` field. Do not use the entire descriptive text from the input.
+
+            Second, generate two sets of topics ensuring there are at least 3 topics per funnel stage for each audience and product/event:
+            1.  **Product-Based Topics:** Ideas directly related to the business's products/services.
+            2.  **Timely & Event-Based Topics:** Based on the 'Current Date' and the business's industry, identify relevant upcoming holidays, industry events, or seasonal business milestones and create topics for them.
+
+            For each generated topic, you must provide three elements:
+            - 'topic': A short, concise title (MAXIMUM 60 characters) that frames the product/service as a solution to a problem relevant to the funnel stage.
+            - 'suggestedHeadline': A longer, more engaging headline suitable for a full article.
+            - 'rationale': A brief explanation of the topic's value and relevance.
+            
+            The final output must be a single JSON object with two top-level keys: `productBasedTopics` and `timelyTopics`, adhering to the provided schema.
+            """
+
+            user_query = f"Current Date: {current_date}\n\n"
+            if st.session_state.guidelines:
+                user_query += f"Full Copywriting Guidelines:\n---\n{st.session_state.guidelines}\n---\n"
+                optional_inputs = {"Specific Industry/Niche": st.session_state.industry, "Specific Branding Tone/Voice": st.session_state.tone, "Specific Target Audiences": st.session_state.audience_input, "Specific Products/Services": st.session_state.product_input}
+                if st.session_state.analysis_results:
+                    optional_details = "\n".join([f"- {key}: {value}" for key, value in optional_inputs.items() if value and value != st.session_state.analysis_results.get(key.lower().replace('specific ', '').replace(' ', '_'))])
+                else:
+                    optional_details = "\n".join([f"- {key}: {value}" for key, value in optional_inputs.items() if value])
+                if optional_details: user_query += f"\nSupplemental Details from Optional Fields:\n{optional_details}"
+            else: 
+                user_query += "Business Details:\n"
+                primary_inputs = {"Industry/Niche": st.session_state.industry, "Branding Tone/Voice": st.session_state.tone, "Target Audiences": st.session_state.audience_input, "Products/Services to Highlight": st.session_state.product_input}
+                primary_details = "\n".join([f"- {key}: {value}" for key, value in primary_inputs.items() if value])
+                user_query += primary_details
+
+            topic_properties = {"type": "OBJECT", "properties": {"topic": {"type": "STRING"}, "suggestedHeadline": {"type": "STRING"}, "rationale": {"type": "STRING"}}, "required": ["topic", "suggestedHeadline", "rationale"]}
+            publication_properties = {"type": "OBJECT", "properties": {"publicationNiche": {"type": "STRING"}, "topics": {"type": "ARRAY", "items": topic_properties}}, "required": ["publicationNiche", "topics"]}
+            audience_properties = {"type": "OBJECT", "properties": {"audienceName": {"type": "STRING"}, "publications": {"type": "ARRAY", "items": publication_properties}}, "required": ["audienceName", "publications"]}
+            funnel_properties = {"type": "OBJECT", "properties": {"funnelStage": {"type": "STRING", "enum": ["ToFu", "MoFu", "BoFu"]}, "audiences": {"type": "ARRAY", "items": audience_properties}}, "required": ["funnelStage", "audiences"]}
+            product_based_topics_properties = {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"productName": {"type": "STRING", "description": "A short, summarized name for the product/service (e.g., 'AI Security Solution')."}, "funnels": {"type": "ARRAY", "items": funnel_properties}}, "required": ["productName", "funnels"]}}
+            timely_topics_properties = {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"eventName": {"type": "STRING", "description": "A short, summarized name for the event or holiday (e.g., 'Q4 Sales Kickoff')."}, "funnels": {"type": "ARRAY", "items": funnel_properties}}, "required": ["eventName", "funnels"]}}
+            schema = {"type": "OBJECT", "properties": {"productBasedTopics": product_based_topics_properties, "timelyTopics": timely_topics_properties}, "required": ["productBasedTopics", "timelyTopics"]}
+
             api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key={st.session_state.api_key}"
-            # ... full payload and API call ...
+            payload = {"contents": [{"parts": [{"text": user_query}]}], "systemInstruction": {"parts": [{"text": system_prompt}]}, "generationConfig": {"responseMimeType": "application/json", "responseSchema": schema}}
+            options = {'headers': {'Content-Type': 'application/json'}, 'body': json.dumps(payload)}
             
-            # The following is a placeholder for the full API call logic which is unchanged
-            st.session_state.generated_data = {"productBasedTopics": [], "timelyTopics": []} # Dummy data
-            # ... full rendering logic ...
-
-
-            # This part is a simplified placeholder for the actual API call logic from the previous version
-            # The full, correct logic from the previous version should be used here.
-            # This placeholder is just to keep the file runnable for demonstration of the layout fix.
+            response, error_msg = fetch_with_retry(api_url, options)
             results_placeholder = st.empty()
-            with results_placeholder.container():
-                st.warning("API call logic is placeholder in this version.")
+
+            if error_msg:
+                results_placeholder.error(error_msg)
+            elif response and response.status_code == 200:
+                try:
+                    result = response.json()
+                    text_content = result.get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', '')
+                    if text_content:
+                        data = json.loads(text_content)
+                        st.session_state.generated_data = data
+                        
+                        with results_placeholder.container():
+                            st.header("Generated Topics", divider="rainbow")
+                            if st.session_state.get('analysis_results'):
+                                st.subheader("Website Analysis Summary")
+                                with st.container(border=True):
+                                    analysis = st.session_state.analysis_results
+                                    st.markdown(f"**Website URL:** {st.session_state.get('analyzed_url', 'N/A')}")
+                                    st.markdown(f"**Target Audience and Pain Points:** {analysis.get('target_audience_pain_points', 'Not found')}")
+                                    st.markdown(f"**Business Services and/or Products:** {analysis.get('services_and_products', 'Not found')}")
+                                    st.markdown(f"**Target Location:** {analysis.get('target_location', 'Not found')}")
+
+                            if data.get("productBasedTopics"):
+                                st.subheader("1. Product/Service Topics")
+                                for product_data in data["productBasedTopics"]:
+                                    create_topic_group(product_data.get('productName'), product_data.get('funnels', []), 'Product/Service')
+                            if data.get("timelyTopics"):
+                                st.subheader("2. Timely & Event-Based Topics")
+                                for event_data in data["timelyTopics"]:
+                                    create_topic_group(event_data.get('eventName'), event_data.get('funnels', []), 'Event/Holiday')
+                            
+                            st.divider()
+                            if GSPREAD_AVAILABLE and "gcp_service_account" in st.secrets:
+                                email_to_share = st.text_input("Enter your Google account email to share the sheet with:")
+                                if st.button("Export to Google Sheets"):
+                                    if email_to_share:
+                                        export_to_gsheet(st.session_state.generated_data, st.session_state.analysis_results, st.session_state.analyzed_url, email_to_share)
+                                    else:
+                                        st.warning("Please enter an email address to share the Google Sheet.")
+                    else:
+                        results_placeholder.error("No content received from API.")
+                except (json.JSONDecodeError, IndexError, KeyError) as e:
+                    results_placeholder.error(f"Failed to parse API response: {e}")
+            elif response:
+                 try:
+                     error_details = response.json()
+                     results_placeholder.error(f"API request failed with status code: {response.status_code}.")
+                     results_placeholder.json(error_details)
+                 except json.JSONDecodeError:
+                     results_placeholder.error(f"API request failed with status code: {response.status_code}.")
 
