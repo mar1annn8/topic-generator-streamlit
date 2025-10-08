@@ -519,11 +519,23 @@ if not st.session_state.dataframe.empty:
     st.dataframe(filtered_df, use_container_width=True)
 
     st.divider()
-    csv_data = convert_df_to_csv(filtered_df, st.session_state.analysis_results, st.session_state.analyzed_url)
-    st.download_button(
-        label="Download Displayed Topics as CSV",
-        data=csv_data,
-        file_name=f"topic_generator_output_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-        mime='text/csv',
-    )
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        csv_data = convert_df_to_csv(filtered_df, st.session_state.analysis_results, st.session_state.analyzed_url)
+        st.download_button(
+            label="Download Topics as CSV",
+            data=csv_data,
+            file_name=f"topic_generator_output_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+            mime='text/csv',
+        )
+    with col2:
+        if st.session_state.analysis_results:
+            analysis_text = prepare_analysis_text(st.session_state.analysis_results, st.session_state.analyzed_url)
+            st.download_button(
+                label="Download Analysis Summary",
+                data=analysis_text,
+                file_name="analysis_summary.txt",
+                mime="text/plain"
+            )
 
