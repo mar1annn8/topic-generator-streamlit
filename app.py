@@ -10,12 +10,44 @@ st.set_page_config(
     layout="wide"
 )
 
-# Hide Streamlit's default menu and footer
+# --- Custom CSS ---
 st.markdown("""
     <style>
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
         header {visibility: hidden;}
+        
+        .status-tag {
+            display: inline-block;
+            padding: 0.3em 0.8em;
+            margin: 0.2em;
+            font-size: 0.9em;
+            font-weight: bold;
+            line-height: 1;
+            text-align: center;
+            white-space: nowrap;
+            vertical-align: baseline;
+            border-radius: 0.25rem;
+            color: white;
+        }
+        .tag-red {
+            background-color: #D32F2F; /* Red */
+        }
+        .tag-green {
+            background-color: #388E3C; /* Green */
+        }
+        
+        /* CSS for the green button when ready */
+        div.stButton > button.ready {
+            background-color: #4CAF50;
+            color: white;
+            border-color: #4CAF50;
+        }
+        div.stButton > button.ready:hover {
+            background-color: #45a049;
+            color: white;
+            border-color: #45a049;
+        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -235,7 +267,6 @@ def create_topic_group(group_name, funnels, group_label):
 
 # --- Sidebar Logic and Rendering ---
 
-# Expander 1: API Key
 with st.sidebar.expander("1. Google API Key", expanded=True):
     api_key_input = st.text_input("Enter Google API Key", type="password", help="Your key is saved for the current session.", value=st.session_state.api_key)
     st.session_state.api_key = api_key_input
@@ -250,14 +281,12 @@ with st.sidebar.expander("1. Google API Key", expanded=True):
         else:
             st.warning("Please enter an API Key to validate.")
 
-# Expander 2: Website Analysis
 with st.sidebar.expander("2. Website Analysis", expanded=True):
     website_url = st.text_input("Enter Website URL")
     analyze_btn = st.button("Analyze Website")
 
-# Website Analysis LOGIC - MUST run before rendering the business details expander
 if analyze_btn:
-    api_key = st.session_state.get("api_key") or st.secrets.get("GOOGLE_API_KEY")
+    api_key = st.session_state.get("api_key")
     if not api_key:
         st.error("Please enter your Google API Key to analyze the website.")
     elif not website_url:
@@ -274,16 +303,14 @@ if analyze_btn:
                 else:
                     st.session_state.analysis_results = analysis
                     st.session_state.analyzed_url = website_url
-                    
                     st.session_state.industry = analysis.get('industry', '')
                     st.session_state.tone = analysis.get('tone', '')
                     st.session_state.audience_input = analysis.get('target_audience_pain_points', '')
                     st.session_state.product_input = analysis.get('services_and_products', '')
                     st.session_state.guidelines = analysis.get('guidelines', '')
                     st.success("Website analyzed!")
-                    st.sidebar.info("Review the auto-filled details below and click 'Generate Topics', or edit them for more specific results.")
+                    st.experimental_rerun()
 
-# Expander 3: Business Details
 with st.sidebar.expander("3. Business Details", expanded=True):
     st.info("Review or edit the details below before generating topics.")
     st.text_input("Business Industry/Niche", placeholder="Auto-filled by analysis", key="industry")
@@ -296,21 +323,42 @@ with st.sidebar.expander("3. Business Details", expanded=True):
 # --- Main Window Button and Topic Generation Logic ---
 
 st.divider()
+
+api_key_ready = bool(st.session_state.get("api_key"))
+details_ready = bool(st.session_state.get("guidelines") or (st.session_state.get("industry") and st.session_state.get("tone") and st.session_state.get("audience_input") and st.session_state.get("product_input")))
+is_ready = api_key_ready and details_ready
+
+# Display status tags
+tags_html = ""
+if api_key_ready:
+    tags_html += '<span class="status-tag tag-green">API Key Provided</span>'
+else:
+    tags_html += '<span class="status-tag tag-red">API Key Missing</span>'
+
+if details_ready:
+    tags_html += '<span class="status-tag tag-green">Business Details Provided</span>'
+else:
+    tags_html += '<span class="status-tag tag-red">Business Details Missing</span>'
+st.markdown(tags_html, unsafe_allow_html=True)
+
+
+# Apply green color to button if ready
+if is_ready:
+    st.markdown('<style>div.stButton > button {background-color: #4CAF50; color: white; border-color: #4CAF50;}</style>', unsafe_allow_html=True)
+
 generate_btn = st.button("Generate Topics", type="primary")
 
 if generate_btn:
-    api_key = st.session_state.get("api_key")
-    guidelines = st.session_state.guidelines
-    industry = st.session_state.industry
-    tone = st.session_state.tone
-    audience_input = st.session_state.audience_input
-    product_input = st.session_state.product_input
-
-    is_ready = bool(api_key and (guidelines or (industry and tone and audience_input and product_input)))
-
     if not is_ready:
-        st.error("Action Required: Please provide an API key and sufficient business details in the sidebar.")
+        st.error("Action Required: Please provide a valid API key and sufficient business details in the sidebar.")
     else:
+        api_key = st.session_state.api_key
+        guidelines = st.session_state.guidelines
+        industry = st.session_state.industry
+        tone = st.session_state.tone
+        audience_input = st.session_state.audience_input
+        product_input = st.session_state.product_input
+        
         with st.spinner("Generating topics... This may take up to a minute."):
             current_date = datetime.now().strftime('%B %d, %Y')
             
