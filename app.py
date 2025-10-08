@@ -384,23 +384,21 @@ is_ready = api_key_ready and details_ready
 if is_ready:
     st.markdown('<style>div.stButton > button {background-color: #4CAF50; color: white; border-color: #4CAF50;}</style>', unsafe_allow_html=True)
 
-generate_btn = st.button("Generate Topics", type="primary")
+col1, col2 = st.columns([1, 2])
+with col1:
+    generate_btn = st.button("Generate Topics", type="primary")
 
-st.markdown("<h6 style='display: inline-block; vertical-align: middle;'>Requirements to Run App:</h6>", unsafe_allow_html=True)
-
-tags_html = ""
-if api_key_ready:
-    tags_html += '<span class="status-tag tag-green">API Key</span>'
-else:
-    tags_html += '<span class="status-tag tag-red">API Key</span>'
-
-tags_html += "<span style='display: inline-block; margin: 0 10px; font-weight: bold; vertical-align: middle;'>+</span>"
-
-if details_ready:
-    tags_html += '<span class="status-tag tag-green">Business Details</span>'
-else:
-    tags_html += '<span class="status-tag tag-red">Business Details</span>'
-st.markdown(tags_html, unsafe_allow_html=True)
+with col2:
+    api_tag = '<span class="status-tag tag-green">API Key</span>' if api_key_ready else '<span class="status-tag tag-red">API Key</span>'
+    details_tag = '<span class="status-tag tag-green">Business Details</span>' if details_ready else '<span class="status-tag tag-red">Business Details</span>'
+    st.markdown(f"""
+    <div style="display: flex; align-items: center; height: 100%;">
+        <h6 style='margin: 0; padding-right: 10px; font-weight: normal; font-size: 0.9em;'>Requirements to Run App:</h6>
+        {api_tag}
+        <span style='margin: 0 10px; font-weight: bold; vertical-align: middle;'>+</span>
+        {details_tag}
+    </div>
+    """, unsafe_allow_html=True)
 
 
 if generate_btn:
