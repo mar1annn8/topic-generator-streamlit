@@ -276,8 +276,8 @@ def prepare_dataframe(data):
 
 
 # --- Sidebar Logic ---
-if 'analyze_btn_clicked' in st.session_state and st.session_state.analyze_btn_clicked:
-    st.session_state.analyze_btn_clicked = False
+if st.session_state.get('analyze_btn_clicked', False):
+    st.session_state.analyze_btn_clicked = False # Reset flag
     api_key = st.session_state.get("api_key")
     website_url = st.session_state.get("website_url_input")
     if not api_key:
@@ -304,6 +304,7 @@ if 'analyze_btn_clicked' in st.session_state and st.session_state.analyze_btn_cl
                     st.success("Website analyzed!")
                     st.rerun()
 
+
 with st.sidebar:
     with st.expander("1. Google API Key", expanded=True):
         st.text_input("Enter Google API Key", type="password", help="Your key is saved for the current session.", key="api_key")
@@ -312,11 +313,17 @@ with st.sidebar:
                 st.success("Valid!")
             else:
                 st.error("Invalid!")
+        if st.button("Clear", key="clear_api_key"):
+            st.session_state.api_key = ""
+            st.rerun()
 
     with st.expander("2. Website Analysis", expanded=True):
         st.text_input("Enter Website URL", key="website_url_input")
         if st.button("Analyze Website"):
             st.session_state.analyze_btn_clicked = True
+            st.rerun()
+        if st.button("Clear", key="clear_url"):
+            st.session_state.website_url_input = ""
             st.rerun()
 
     with st.expander("3. Business Details", expanded=True):
