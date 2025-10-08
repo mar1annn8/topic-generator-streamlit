@@ -4,6 +4,7 @@ import json
 from datetime import datetime
 from bs4 import BeautifulSoup
 import pandas as pd
+import io
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -14,6 +15,14 @@ st.set_page_config(
 # --- Custom CSS ---
 st.markdown("""
     <style>
+        /* Reduce top padding */
+        .block-container {
+            padding-top: 2rem;
+        }
+        [data-testid="stSidebar"] > div:first-child {
+            padding-top: 2rem;
+        }
+
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
         header {visibility: hidden;}
@@ -39,6 +48,9 @@ st.markdown("""
         }
         
         /* CSS for the green button when ready */
+        div.stButton > button {
+            width: 100%;
+        }
         div.stButton > button.ready {
             background-color: #4CAF50;
             color: white;
@@ -61,18 +73,6 @@ This AI tool generates topic ideas based on the marketing funnel concepts from
 [Search Engine Land](https://searchengineland.com/how-to-drive-the-funnel-through-content-marketing-and-link-building-374343), 
 tailored to the business details provided.
 """)
-
-with st.expander("How to Start"):
-    st.markdown("""
-    **Option 1: Analyze a Website (Recommended)**
-    1.  Enter a business's website URL in the sidebar.
-    2.  Click "Analyze Website".
-    3.  The tool will auto-fill the business details for you.
-
-    **Option 2: Enter Details Manually**
-    - Skip the website analysis and fill in the business details in the sidebar directly. Use field 5 for complete guidelines.
-    """)
-
 
 with st.expander("How to Use This Tool"):
     st.markdown("""
@@ -115,6 +115,17 @@ with st.expander("How to Use This Tool"):
     - **Prioritize Field 5:** Always try to use a comprehensive document in the main guidelines field for the most context-aware suggestions.
     - **Check for Specificity:** If the generated topics seem too general, add more specific details to the optional fields to help guide the AI.
     - **Use as a Starting Point:** The generated ideas are a strong starting point. They should be reviewed by a strategist to ensure perfect alignment with the business's goals before outreach.
+    """)
+
+with st.expander("How to Start"):
+    st.markdown("""
+    **Option 1: Analyze a Website (Recommended)**
+    1.  Enter a business's website URL in the sidebar.
+    2.  Click "Analyze Website".
+    3.  The tool will auto-fill the business details for you.
+
+    **Option 2: Enter Details Manually**
+    - Skip the website analysis and fill in the business details in the sidebar directly. Use field 5 for complete guidelines.
     """)
 
 with st.expander("How to Get a Google AI API Key"):
@@ -243,8 +254,19 @@ def fetch_with_retry(url, options, retries=3):
     error_msg = f"The server responded with an error (Status {response.status_code}) after multiple retries."
     return None, error_msg
 
-def convert_df_to_csv(df):
-   return df.to_csv(index=False).encode('utf-8')
+def convert_df_to_csv(df, analysis_data, analyzed_url):
+    """Prepares data for CSV export with analysis summary."""
+    output = io.StringIO()
+    if analysis_data:
+        output.write("Business Analysis Summary\n")
+        output.write(f"Website URL:,{analyzed_url}\n")
+        output.write(f"Target Audience and Pain Points:,{analysis_data.get('target_audience_pain_points', 'Not found')}\n")
+        output.write(f"Business Services and/or Products:,{analysis_data.get('services_and_products', 'Not found')}\n")
+        output.write(f"Target Location:,{analysis_data.get('target_location', 'Not found')}\n")
+        output.write("\n") # Blank row
+    
+    df.to_csv(output, index=False)
+    return output.getvalue().encode('utf-8')
 
 def prepare_dataframe(data):
     """Flattens the nested topic data into a DataFrame."""
@@ -278,7 +300,7 @@ def prepare_dataframe(data):
 # --- Sidebar Logic ---
 if st.session_state.get('analyze_btn_clicked', False):
     st.session_state.analyze_btn_clicked = False # Reset flag
-    api_key = st.session_state.get("api_key")
+    api_key = st.session_state.get("api_key_input")
     website_url = st.session_state.get("website_url_input")
     if not api_key:
         st.error("Please enter your Google API Key first.")
@@ -352,10 +374,17 @@ with st.sidebar:
 
 # --- Main Window Button and Topic Generation Logic ---
 st.divider()
+
 api_key_ready = bool(st.session_state.api_key)
 details_ready = bool(st.session_state.guidelines or (st.session_state.industry and st.session_state.tone and st.session_state.audience_input and st.session_state.product_input))
 is_ready = api_key_ready and details_ready
 
+if is_ready:
+    st.markdown('<style>div.stButton > button {background-color: #4CAF50; color: white; border-color: #4CAF50;}</style>', unsafe_allow_html=True)
+
+generate_btn = st.button("Generate Topics", type="primary")
+
+st.subheader("Requirements to Run App")
 tags_html = ""
 if api_key_ready: tags_html += '<span class="status-tag tag-green">API Key Provided</span>'
 else: tags_html += '<span class="status-tag tag-red">API Key Missing</span>'
@@ -364,9 +393,8 @@ if details_ready: tags_html += '<span class="status-tag tag-green">Business Deta
 else: tags_html += '<span class="status-tag tag-red">Business Details Missing</span>'
 st.markdown(tags_html, unsafe_allow_html=True)
 
-if is_ready: st.markdown('<style>div.stButton > button {background-color: #4CAF50; color: white; border-color: #4CAF50;}</style>', unsafe_allow_html=True)
 
-if st.button("Generate Topics", type="primary"):
+if generate_btn:
     if not is_ready:
         st.error("Action Required: Please provide a valid API key and sufficient business details in the sidebar.")
     else:
@@ -484,7 +512,7 @@ if not st.session_state.dataframe.empty:
     st.dataframe(filtered_df, use_container_width=True)
 
     st.divider()
-    csv_data = convert_df_to_csv(filtered_df)
+    csv_data = convert_df_to_csv(filtered_df, st.session_state.analysis_results, st.session_state.analyzed_url)
     st.download_button(
         label="Download Displayed Topics as CSV",
         data=csv_data,
