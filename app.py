@@ -3,14 +3,7 @@ import requests
 import json
 from datetime import datetime
 from bs4 import BeautifulSoup
-
-# Try to import Google Sheets libraries and handle the error gracefully
-try:
-    import gspread
-    from google.oauth2.service_account import Credentials
-    GSPREAD_AVAILABLE = True
-except ImportError:
-    GSPREAD_AVAILABLE = False
+import pandas as pd
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -145,37 +138,6 @@ with st.expander("How to Get a Google AI API Key"):
     - Paste this key into the **"Enter Google API Key"** field in the Topic Generator's sidebar.
     """)
 
-with st.expander("Setup Google Sheets Export (Optional)"):
-    st.markdown("""
-    To enable the "Export to Google Sheets" feature, follow these one-time setup steps. This allows the app to securely create and write to a new Google Sheet, then share it with a specified Google account. 
-    
-    **Note:** This method uses a secure **Service Account** for server-to-server authentication, which is the standard for this type of application. It does not use the personal Google account login from the browser.
-
-    **1. Create a Google Cloud Project & Enable APIs**
-    - Go to the [Google Cloud Console](https://console.cloud.google.com/) and create a new project (or select an existing one).
-    - In that project, enable two APIs: **Google Drive API** and **Google Sheets API**. Search for them in the search bar at the top and click "Enable".
-
-    **2. Create a Service Account**
-    - In the Google Cloud Console, navigate to "IAM & Admin" > "Service Accounts".
-    - Click "+ CREATE SERVICE ACCOUNT".
-    - Give it a name (e.g., `topic-generator-sheets`) and a description. Click "CREATE AND CONTINUE".
-    - For "Role", select "Project" > "Editor". Click "CONTINUE", then "DONE".
-
-    **3. Generate and Copy Credentials**
-    - Find the newly created service account in the list. Click the three dots under "Actions" and select "Manage keys".
-    - Click "ADD KEY" > "Create new key".
-    - Choose **JSON** as the key type and click "CREATE". A JSON file will be downloaded.
-    - Open the JSON file. The contents are the credentials.
-
-    **4. Add Credentials to Streamlit Secrets**
-    - In your Streamlit app, click "Manage app" > "Settings" > "Secrets".
-    - Create a new secret named `gcp_service_account` and paste the entire content of the downloaded JSON file into the text box.
-    - Click "Save". The app will reboot.
-
-    The export feature is now ready to use.
-    """)
-
-
 # --- Initialize Session State ---
 if 'api_key' not in st.session_state: st.session_state.api_key = ""
 if 'industry' not in st.session_state: st.session_state.industry = ""
@@ -187,6 +149,7 @@ if 'analysis_results' not in st.session_state: st.session_state.analysis_results
 if 'analyzed_url' not in st.session_state: st.session_state.analyzed_url = ""
 if 'generated_data' not in st.session_state: st.session_state.generated_data = None
 if 'analyze_btn_clicked' not in st.session_state: st.session_state.analyze_btn_clicked = False
+if 'dataframe' not in st.session_state: st.session_state.dataframe = pd.DataFrame()
 
 
 # --- Functions ---
@@ -280,104 +243,41 @@ def fetch_with_retry(url, options, retries=3):
     error_msg = f"The server responded with an error (Status {response.status_code}) after multiple retries."
     return None, error_msg
 
-def create_topic_group(group_name, funnels, group_label):
-    """Renders a single group of topics (for a product or event)."""
-    st.header(f"{group_label}: {group_name}", divider="gray")
-    
-    funnel_map = {"ToFu": ("ToFu (Awareness)", "blue"), "MoFu": ("MoFu (Consideration)", "green"), "BoFu": ("BoFu (Decision)", "red")}
-    stage_order = { 'ToFu': 1, 'MoFu': 2, 'BoFu': 3 }
-    
-    sorted_funnels = sorted(funnels, key=lambda f: stage_order.get(f.get('funnelStage', ''), 0))
+def convert_df_to_csv(df):
+   return df.to_csv(index=False).encode('utf-8')
 
-    for funnel in sorted_funnels:
-        stage = funnel.get('funnelStage')
-        if stage in funnel_map:
-            name, color = funnel_map[stage]
-            with st.container(border=True):
-                st.subheader(f":{color}[{name}]")
-                for audience in funnel.get('audiences', []):
-                    st.markdown(f"**Target Audience:** {audience.get('audienceName', 'N/A')}")
-                    for pub in audience.get('publications', []):
-                        with st.expander(f"Publication Niche: {pub.get('publicationNiche', 'N/A')}"):
-                            for topic in pub.get('topics', []):
-                                st.markdown(f"**Topic:** {topic.get('topic', 'No Topic')}")
-                                st.markdown(f"**Suggested Headline:** {topic.get('suggestedHeadline', 'No Headline')}")
-                                st.caption(f"Rationale: {topic.get('rationale', 'No Rationale')}")
-                                st.markdown("---")
-
-def flatten_data_for_export(data, analysis_data, analyzed_url):
-    """Flattens data for the two-tab Google Sheet export."""
-    analysis_rows = [
-        ["Website URL:", analyzed_url],
-        ["Target Audience and Pain Points:", analysis_data.get('target_audience_pain_points', 'Not found') if analysis_data else ''],
-        ["Business Services and/or Products:", analysis_data.get('services_and_products', 'Not found') if analysis_data else ''],
-        ["Target Location:", analysis_data.get('target_location', 'Not found') if analysis_data else '']
-    ]
-
-    topic_rows = []
-    header = ["Product/Service or Event", "Target Audience", "Publication Niche", "Funnel Stage", "Topic", "Suggested Headline", "Rationale"]
-    topic_rows.append(header)
+def prepare_dataframe(data):
+    """Flattens the nested topic data into a DataFrame."""
+    rows = []
+    header = ["Category", "Group Name", "Target Audience", "Publication Niche", "Funnel Stage", "Topic", "Suggested Headline", "Rationale"]
     
-    def process_group(group_data, group_key, label):
+    def process_group(group_data, category, group_key, label):
         for item in group_data.get(group_key, []):
             group_name = item.get(label)
             for funnel in item.get('funnels', []):
                 for audience in funnel.get('audiences', []):
                     for pub in audience.get('publications', []):
                         for topic in pub.get('topics', []):
-                            topic_rows.append([
-                                group_name,
-                                audience.get('audienceName'),
-                                pub.get('publicationNiche'),
-                                funnel.get('funnelStage'),
-                                topic.get('topic'),
-                                topic.get('suggestedHeadline'),
-                                topic.get('rationale')
-                            ])
+                            rows.append({
+                                "Category": category,
+                                "Group Name": group_name,
+                                "Target Audience": audience.get('audienceName'),
+                                "Publication Niche": pub.get('publicationNiche'),
+                                "Funnel Stage": funnel.get('funnelStage'),
+                                "Topic": topic.get('topic'),
+                                "Suggested Headline": topic.get('suggestedHeadline'),
+                                "Rationale": topic.get('rationale')
+                            })
 
-    process_group(data, 'productBasedTopics', 'productName')
-    process_group(data, 'timelyTopics', 'eventName')
-    return analysis_rows, topic_rows
+    process_group(data, 'Product/Service', 'productBasedTopics', 'productName')
+    process_group(data, 'Timely/Event', 'timelyTopics', 'eventName')
 
-
-def export_to_gsheet(data, analysis_data, analyzed_url, email_address):
-    """Exports flattened data to a new two-tab Google Sheet."""
-    if not GSPREAD_AVAILABLE:
-        st.error("Google Sheets export feature is not available. The required libraries are missing.")
-        return
-
-    try:
-        creds_dict = st.secrets["gcp_service_account"]
-        creds = Credentials.from_service_account_info(creds_dict)
-        client = gspread.authorize(creds)
-
-        spreadsheet_title = f"Topic Generator Output - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-        spreadsheet = client.create(spreadsheet_title)
-
-        # Tab 1: Business Analysis Summary
-        analysis_sheet = spreadsheet.worksheet("Sheet1")
-        analysis_sheet.update_title("Business Analysis Summary")
-        analysis_rows, topic_rows = flatten_data_for_export(data, analysis_data, analyzed_url)
-        analysis_sheet.update('A1', analysis_rows)
-        analysis_sheet.format('A1:A4', {'textFormat': {'bold': True}})
-
-        # Tab 2: Topics
-        topics_sheet = spreadsheet.add_worksheet(title="Topics", rows="1000", cols="20")
-        topics_sheet.update('A1', topic_rows)
-        topics_sheet.format('A1:H1', {'textFormat': {'bold': True}})
-        
-        spreadsheet.share(email_address, perm_type='user', role='writer')
-        st.success(f"Successfully exported and shared with {email_address}! [Open Sheet]({spreadsheet.url})")
-
-    except Exception as e:
-        st.error(f"Failed to export to Google Sheets. Ensure `gcp_service_account` secret is set up correctly. Error: {e}")
+    return pd.DataFrame(rows, columns=header)
 
 
 # --- Sidebar Logic ---
-# This structure ensures that state updates from button clicks are handled at the start of the script run, before widgets are drawn.
-
 if 'analyze_btn_clicked' in st.session_state and st.session_state.analyze_btn_clicked:
-    st.session_state.analyze_btn_clicked = False # Reset
+    st.session_state.analyze_btn_clicked = False
     api_key = st.session_state.get("api_key")
     website_url = st.session_state.get("website_url_input")
     if not api_key:
@@ -407,30 +307,18 @@ if 'analyze_btn_clicked' in st.session_state and st.session_state.analyze_btn_cl
 with st.sidebar:
     with st.expander("1. Google API Key", expanded=True):
         st.text_input("Enter Google API Key", type="password", help="Your key is saved for the current session.", key="api_key")
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("Validate"):
-                if st.session_state.api_key and validate_api_key(st.session_state.api_key):
-                    st.success("Valid!")
-                else:
-                    st.error("Invalid!")
-        with col2:
-            if st.button("Clear", key="clear_api"):
-                st.session_state.api_key = ""
-                st.rerun()
+        if st.button("Validate API Key"):
+            if st.session_state.api_key and validate_api_key(st.session_state.api_key):
+                st.success("Valid!")
+            else:
+                st.error("Invalid!")
 
     with st.expander("2. Website Analysis", expanded=True):
         st.text_input("Enter Website URL", key="website_url_input")
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("Analyze Website"):
-                st.session_state.analyze_btn_clicked = True
-                st.rerun()
-        with col2:
-            if st.button("Clear", key="clear_url"):
-                st.session_state.website_url_input = ""
-                st.rerun()
-    
+        if st.button("Analyze Website"):
+            st.session_state.analyze_btn_clicked = True
+            st.rerun()
+
     with st.expander("3. Business Details", expanded=True):
         st.info("Review or edit the details below.")
         st.text_input("Business Industry/Niche", key="industry")
@@ -514,10 +402,9 @@ if st.button("Generate Topics", type="primary"):
             options = {'headers': {'Content-Type': 'application/json'}, 'body': json.dumps(payload)}
             
             response, error_msg = fetch_with_retry(api_url, options)
-            results_placeholder = st.empty()
-
+            
             if error_msg:
-                results_placeholder.error(error_msg)
+                st.error(error_msg)
             elif response and response.status_code == 200:
                 try:
                     result = response.json()
@@ -525,44 +412,68 @@ if st.button("Generate Topics", type="primary"):
                     if text_content:
                         data = json.loads(text_content)
                         st.session_state.generated_data = data
-                        
-                        with results_placeholder.container():
-                            st.header("Generated Topics", divider="rainbow")
-                            if st.session_state.get('analysis_results'):
-                                st.subheader("Website Analysis Summary")
-                                with st.container(border=True):
-                                    analysis = st.session_state.analysis_results
-                                    st.markdown(f"**Website URL:** {st.session_state.get('analyzed_url', 'N/A')}")
-                                    st.markdown(f"**Target Audience and Pain Points:** {analysis.get('target_audience_pain_points', 'Not found')}")
-                                    st.markdown(f"**Business Services and/or Products:** {analysis.get('services_and_products', 'Not found')}")
-                                    st.markdown(f"**Target Location:** {analysis.get('target_location', 'Not found')}")
-
-                            if data.get("productBasedTopics"):
-                                st.subheader("1. Product/Service Topics")
-                                for product_data in data["productBasedTopics"]:
-                                    create_topic_group(product_data.get('productName'), product_data.get('funnels', []), 'Product/Service')
-                            if data.get("timelyTopics"):
-                                st.subheader("2. Timely & Event-Based Topics")
-                                for event_data in data["timelyTopics"]:
-                                    create_topic_group(event_data.get('eventName'), event_data.get('funnels', []), 'Event/Holiday')
-                            
-                            st.divider()
-                            if GSPREAD_AVAILABLE and "gcp_service_account" in st.secrets:
-                                email_to_share = st.text_input("Enter your Google account email to share the sheet with:")
-                                if st.button("Export to Google Sheets"):
-                                    if email_to_share:
-                                        export_to_gsheet(st.session_state.generated_data, st.session_state.analysis_results, st.session_state.analyzed_url, email_to_share)
-                                    else:
-                                        st.warning("Please enter an email address to share the Google Sheet.")
+                        st.session_state.dataframe = prepare_dataframe(data)
                     else:
-                        results_placeholder.error("No content received from API.")
+                        st.error("No content received from API.")
                 except (json.JSONDecodeError, IndexError, KeyError) as e:
-                    results_placeholder.error(f"Failed to parse API response: {e}")
+                    st.error(f"Failed to parse API response: {e}")
             elif response:
                  try:
                      error_details = response.json()
-                     results_placeholder.error(f"API request failed with status code: {response.status_code}.")
-                     results_placeholder.json(error_details)
+                     st.error(f"API request failed with status code: {response.status_code}.")
+                     st.json(error_details)
                  except json.JSONDecodeError:
-                     results_placeholder.error(f"API request failed with status code: {response.status_code}.")
+                     st.error(f"API request failed with status code: {response.status_code}.")
+
+# --- Display Results ---
+if not st.session_state.dataframe.empty:
+    st.header("Generated Topics", divider="rainbow")
+    
+    if st.session_state.get('analysis_results'):
+        st.subheader("Website Analysis Summary")
+        with st.container(border=True):
+            analysis = st.session_state.analysis_results
+            st.markdown(f"**Website URL:** {st.session_state.get('analyzed_url', 'N/A')}")
+            st.markdown(f"**Target Audience and Pain Points:** {analysis.get('target_audience_pain_points', 'Not found')}")
+            st.markdown(f"**Business Services and/or Products:** {analysis.get('services_and_products', 'Not found')}")
+            st.markdown(f"**Target Location:** {analysis.get('target_location', 'Not found')}")
+    
+    st.subheader("Filter and Search Topics")
+    
+    df_to_display = st.session_state.dataframe.copy()
+
+    # Search bar
+    search_query = st.text_input("Search topics...")
+    if search_query:
+        df_to_display = df_to_display[df_to_display.apply(lambda row: row.astype(str).str.contains(search_query, case=False).any(), axis=1)]
+
+    # Filter dropdowns
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        categories = df_to_display['Category'].unique()
+        selected_categories = st.multiselect("Filter by Category", categories, default=categories)
+    with col2:
+        funnels = df_to_display['Funnel Stage'].unique()
+        selected_funnels = st.multiselect("Filter by Funnel Stage", funnels, default=funnels)
+    with col3:
+        audiences = df_to_display['Target Audience'].unique()
+        selected_audiences = st.multiselect("Filter by Target Audience", audiences, default=audiences)
+    
+    # Apply filters
+    filtered_df = df_to_display[
+        df_to_display['Category'].isin(selected_categories) &
+        df_to_display['Funnel Stage'].isin(selected_funnels) &
+        df_to_display['Target Audience'].isin(selected_audiences)
+    ]
+
+    st.dataframe(filtered_df, use_container_width=True)
+
+    st.divider()
+    csv_data = convert_df_to_csv(filtered_df)
+    st.download_button(
+        label="Download Displayed Topics as CSV",
+        data=csv_data,
+        file_name=f"topic_generator_output_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+        mime='text/csv',
+    )
 
