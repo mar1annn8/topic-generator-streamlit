@@ -304,11 +304,10 @@ if st.session_state.get('analyze_btn_clicked', False):
                     st.success("Website analyzed!")
                     st.rerun()
 
-
 with st.sidebar:
     with st.expander("1. Google API Key", expanded=True):
-        api_key_val = st.text_input("Enter Google API Key", type="password", help="Your key is saved for the current session.", value=st.session_state.api_key)
-        st.session_state.api_key = api_key_val
+        st.text_input("Enter Google API Key", type="password", help="Your key is saved for the current session.", key="api_key_input")
+        if st.session_state.api_key_input: st.session_state.api_key = st.session_state.api_key_input
         
         col1, col2 = st.columns(2)
         with col1:
@@ -320,12 +319,11 @@ with st.sidebar:
         with col2:
             if st.button("Clear", key="clear_api_key"):
                 st.session_state.api_key = ""
+                st.session_state.api_key_input = ""
                 st.rerun()
 
     with st.expander("2. Website Analysis", expanded=True):
-        website_url_val = st.text_input("Enter Website URL", value=st.session_state.get("website_url_input", ""))
-        st.session_state.website_url_input = website_url_val
-        
+        st.text_input("Enter Website URL", key="website_url_input")
         col1, col2 = st.columns(2)
         with col1:
             if st.button("Analyze Website"):
