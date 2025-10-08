@@ -255,8 +255,19 @@ def fetch_with_retry(url, options, retries=3):
     error_msg = f"The server responded with an error (Status {response.status_code}) after multiple retries."
     return None, error_msg
 
-def convert_df_to_csv(df):
-   return df.to_csv(index=False).encode('utf-8')
+def convert_df_to_csv(df, analysis_data, analyzed_url):
+    """Prepares data for CSV export with analysis summary."""
+    output = io.StringIO()
+    if analysis_data:
+        output.write("Business Analysis Summary\n")
+        output.write(f"Website URL:,{analyzed_url}\n")
+        output.write(f"Target Audience and Pain Points:,{analysis_data.get('target_audience_pain_points', 'Not found')}\n")
+        output.write(f"Business Services and/or Products:,{analysis_data.get('services_and_products', 'Not found')}\n")
+        output.write(f"Target Location:,{analysis_data.get('target_location', 'Not found')}\n")
+        output.write("\n") # Blank row
+    
+    df.to_csv(output, index=False)
+    return output.getvalue().encode('utf-8')
 
 def prepare_dataframe(data):
     """Flattens the nested topic data into a DataFrame."""
