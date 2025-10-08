@@ -380,15 +380,19 @@ if 'analyze_btn_clicked' in st.session_state and st.session_state.analyze_btn_cl
     st.session_state.analyze_btn_clicked = False # Reset
     api_key = st.session_state.get("api_key")
     website_url = st.session_state.get("website_url_input")
-    if not api_key: st.error("Please enter your Google API Key first.")
-    elif not website_url: st.error("Please enter a website URL.")
+    if not api_key:
+        st.error("Please enter your Google API Key first.")
+    elif not website_url:
+        st.error("Please enter a website URL.")
     else:
         with st.spinner("Scraping and analyzing website..."):
             scraped_text, error = scrape_website(website_url)
-            if error: st.error(error)
+            if error:
+                st.error(error)
             else:
                 analysis, error = analyze_scraped_text(api_key, scraped_text)
-                if error: st.error(error)
+                if error:
+                    st.error(error)
                 else:
                     st.session_state.analysis_results = analysis
                     st.session_state.analyzed_url = website_url
@@ -398,22 +402,35 @@ if 'analyze_btn_clicked' in st.session_state and st.session_state.analyze_btn_cl
                     st.session_state.product_input = analysis.get('services_and_products', '')
                     st.session_state.guidelines = analysis.get('guidelines', '')
                     st.success("Website analyzed!")
-                    # No rerun needed, the widgets will draw with the new state
-
+                    st.rerun()
 
 with st.sidebar:
     with st.expander("1. Google API Key", expanded=True):
         st.text_input("Enter Google API Key", type="password", help="Your key is saved for the current session.", key="api_key")
-        if st.button("Validate API Key"):
-            if st.session_state.api_key and validate_api_key(st.session_state.api_key):
-                st.success("Valid!")
-            else:
-                st.error("Invalid!")
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Validate"):
+                if st.session_state.api_key and validate_api_key(st.session_state.api_key):
+                    st.success("Valid!")
+                else:
+                    st.error("Invalid!")
+        with col2:
+            if st.button("Clear", key="clear_api"):
+                st.session_state.api_key = ""
+                st.rerun()
+
     with st.expander("2. Website Analysis", expanded=True):
         st.text_input("Enter Website URL", key="website_url_input")
-        if st.button("Analyze Website"):
-            st.session_state.analyze_btn_clicked = True
-            st.experimental_rerun()
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Analyze Website"):
+                st.session_state.analyze_btn_clicked = True
+                st.rerun()
+        with col2:
+            if st.button("Clear", key="clear_url"):
+                st.session_state.website_url_input = ""
+                st.rerun()
+    
     with st.expander("3. Business Details", expanded=True):
         st.info("Review or edit the details below.")
         st.text_input("Business Industry/Niche", key="industry")
@@ -427,7 +444,7 @@ with st.sidebar:
             st.session_state.audience_input = ""
             st.session_state.product_input = ""
             st.session_state.guidelines = ""
-            st.experimental_rerun()
+            st.rerun()
 
 
 # --- Main Window Button and Topic Generation Logic ---
@@ -452,6 +469,7 @@ if st.button("Generate Topics", type="primary"):
     else:
         with st.spinner("Generating topics... This may take up to a minute."):
             current_date = datetime.now().strftime('%B %d, %Y')
+            
             system_prompt = """You are a strategic content and marketing analyst. Your task is to generate two distinct sets of guest post topics based on the provided business details and the current date. The topic generation must be guided by the marketing funnel principles (ToFu, MoFu, BoFu).
 
             First, analyze the provided text (which may be copywriting guidelines or a collection of details) to extract the business's industry, tone, target audiences, and products/services. When you identify a product, service, or event, summarize it into a short, clear name (e.g., "AI Security Solution" or "Annual Tech Conference") for the `productName` or `eventName` field. Do not use the entire descriptive text from the input.
