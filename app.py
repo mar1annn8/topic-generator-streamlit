@@ -25,6 +25,7 @@ st.markdown("""
 
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
+        header {visibility: hidden;}
         
         .status-tag {
             display: inline-block;
@@ -310,6 +311,19 @@ def prepare_dataframe(data):
     process_group(data, 'Timely/Event', 'timelyTopics', 'eventName')
 
     return pd.DataFrame(rows, columns=header)
+
+def prepare_analysis_text(analysis_data, analyzed_url):
+    """Prepares the analysis summary for text file export."""
+    if not analysis_data:
+        return ""
+    
+    summary = "Business Analysis Summary\n"
+    summary += "=========================\n"
+    summary += f"Website URL: {analyzed_url}\n"
+    summary += f"Target Audience and Pain Points: {analysis_data.get('target_audience_pain_points', 'Not found')}\n"
+    summary += f"Business Services and/or Products: {analysis_data.get('services_and_products', 'Not found')}\n"
+    summary += f"Target Location: {analysis_data.get('target_location', 'Not found')}\n"
+    return summary
 
 
 # --- Sidebar Logic ---
