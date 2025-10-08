@@ -3,8 +3,14 @@ import requests
 import json
 from datetime import datetime
 from bs4 import BeautifulSoup
-import gspread
-from google.oauth2.service_account import Credentials
+
+# Try to import Google Sheets libraries and handle the error gracefully
+try:
+    import gspread
+    from google.oauth2.service_account import Credentials
+    GSPREAD_AVAILABLE = True
+except ImportError:
+    GSPREAD_AVAILABLE = False
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -324,6 +330,10 @@ def flatten_data(data):
 
 def export_to_gsheet(data):
     """Exports flattened data to a new Google Sheet."""
+    if not GSPREAD_AVAILABLE:
+        st.error("Google Sheets export is not available. Please install the required libraries (`gspread`, `google-auth-oauthlib`) in your `requirements.txt` file.")
+        return
+
     try:
         creds_dict = st.secrets["gcp_service_account"]
         creds = Credentials.from_service_account_info(creds_dict)
@@ -349,25 +359,83 @@ def export_to_gsheet(data):
 
 # --- Sidebar Logic and Rendering ---
 
-with st.sidebar.expander("1. Google API Key", expanded=True):
-    api_key_input = st.text_input("Enter Google API Key", type="password", help="Your key is saved for the current session.", value=st.session_state.api_key)
-    st.session_state.api_key = api_key_input
-    
-    validate_btn = st.button("Validate API Key")
-    if validate_btn:
-        if st.session_state.api_key:
-            if validate_api_key(st.session_state.api_key):
-                st.success("API Key is valid!")
+# This section must run before the sidebar expanders are drawn
+if 'analyze_btn_clicked' not in st.session_state:
+    st.session_state.analyze_btn_clicked = False
+
+sidebar_placeholder = st.sidebar.empty()
+
+with sidebar_placeholder.container():
+    with st.expander("1. Google API Key", expanded=True):
+        api_key_input = st.text_input("Enter Google API Key", type="password", help="Your key is saved for the current session.", value=st.session_state.api_key)
+        st.session_state.api_key = api_key_input
+        
+        validate_btn = st.button("Validate API Key")
+        if validate_btn:
+            if st.session_state.api_key:
+                if validate_api_key(st.session_state.api_key):
+                    st.success("API Key is valid!")
+                else:
+                    st.error("API Key is not valid.")
             else:
-                st.error("API Key is not valid.")
-        else:
-            st.warning("Please enter an API Key to validate.")
+                st.warning("Please enter an API Key to validate.")
 
-with st.sidebar.expander("2. Website Analysis", expanded=True):
-    website_url = st.text_input("Enter Website URL")
-    analyze_btn = st.button("Analyze Website")
+    with st.expander("2. Website Analysis", expanded=True):
+        website_url = st.text_input("Enter Website URL")
+        if st.button("Analyze Website"):
+            st.session_state.analyze_btn_clicked = True
+    
+    with st.expander("3. Business Details", expanded=True):
+        st.info("Review or edit the details below before generating topics.")
 
-if analyze_btn:
+        col1, col2 = st.columns([0.85, 0.15])
+        with col1:
+            st.text_input("Business Industry/Niche", placeholder="Auto-filled by analysis", key="industry")
+        with col2:
+            st.write("") 
+            if st.button("X", key="clear_industry", help="Clear field"):
+                st.session_state.industry = ""
+                st.experimental_rerun()
+
+        col1, col2 = st.columns([0.85, 0.15])
+        with col1:
+            st.text_input("Branding Tone/Voice", placeholder="Auto-filled by analysis", key="tone")
+        with col2:
+            st.write("")
+            if st.button("X", key="clear_tone", help="Clear field"):
+                st.session_state.tone = ""
+                st.experimental_rerun()
+
+        col1, col2 = st.columns([0.85, 0.15])
+        with col1:
+            st.text_area("Target Audience", placeholder="Auto-filled by analysis", key="audience_input")
+        with col2:
+            st.write("")
+            if st.button("X", key="clear_audience", help="Clear field"):
+                st.session_state.audience_input = ""
+                st.experimental_rerun()
+
+        col1, col2 = st.columns([0.85, 0.15])
+        with col1:
+            st.text_area("Product/Service to Highlight", placeholder="Auto-filled by analysis", key="product_input")
+        with col2:
+            st.write("")
+            if st.button("X", key="clear_product", help="Clear field"):
+                st.session_state.product_input = ""
+                st.experimental_rerun()
+                
+        col1, col2 = st.columns([0.85, 0.15])
+        with col1:
+            st.text_area("Full Copywriting Guidelines / Additional Context", placeholder="Auto-filled by analysis", key="guidelines")
+        with col2:
+            st.write("")
+            if st.button("X", key="clear_guidelines", help="Clear field"):
+                st.session_state.guidelines = ""
+                st.experimental_rerun()
+
+# Website Analysis LOGIC
+if st.session_state.analyze_btn_clicked:
+    st.session_state.analyze_btn_clicked = False # Reset the flag
     api_key = st.session_state.get("api_key")
     if not api_key:
         st.error("Please enter your Google API Key to analyze the website.")
@@ -393,97 +461,29 @@ if analyze_btn:
                     st.success("Website analyzed!")
                     st.experimental_rerun()
 
-with st.sidebar.expander("3. Business Details", expanded=True):
-    st.info("Review or edit the details below before generating topics.")
-
-    col1, col2 = st.columns([0.85, 0.15])
-    with col1:
-        st.text_input("Business Industry/Niche", placeholder="Auto-filled by analysis", key="industry")
-    with col2:
-        st.write("") 
-        if st.button("X", key="clear_industry", help="Clear field"):
-            st.session_state.industry = ""
-            st.experimental_rerun()
-
-    col1, col2 = st.columns([0.85, 0.15])
-    with col1:
-        st.text_input("Branding Tone/Voice", placeholder="Auto-filled by analysis", key="tone")
-    with col2:
-        st.write("")
-        if st.button("X", key="clear_tone", help="Clear field"):
-            st.session_state.tone = ""
-            st.experimental_rerun()
-
-    col1, col2 = st.columns([0.85, 0.15])
-    with col1:
-        st.text_area("Target Audience", placeholder="Auto-filled by analysis", key="audience_input")
-    with col2:
-        st.write("")
-        if st.button("X", key="clear_audience", help="Clear field"):
-            st.session_state.audience_input = ""
-            st.experimental_rerun()
-
-    col1, col2 = st.columns([0.85, 0.15])
-    with col1:
-        st.text_area("Product/Service to Highlight", placeholder="Auto-filled by analysis", key="product_input")
-    with col2:
-        st.write("")
-        if st.button("X", key="clear_product", help="Clear field"):
-            st.session_state.product_input = ""
-            st.experimental_rerun()
-            
-    col1, col2 = st.columns([0.85, 0.15])
-    with col1:
-        st.text_area("Full Copywriting Guidelines / Additional Context", placeholder="Auto-filled by analysis", key="guidelines")
-    with col2:
-        st.write("")
-        if st.button("X", key="clear_guidelines", help="Clear field"):
-            st.session_state.guidelines = ""
-            st.experimental_rerun()
-
 
 # --- Main Window Button and Topic Generation Logic ---
-
 st.divider()
-
 api_key_ready = bool(st.session_state.get("api_key"))
 details_ready = bool(st.session_state.get("guidelines") or (st.session_state.get("industry") and st.session_state.get("tone") and st.session_state.get("audience_input") and st.session_state.get("product_input")))
 is_ready = api_key_ready and details_ready
 
-# Display status tags
 tags_html = ""
-if api_key_ready:
-    tags_html += '<span class="status-tag tag-green">API Key Provided</span>'
-else:
-    tags_html += '<span class="status-tag tag-red">API Key Missing</span>'
+if api_key_ready: tags_html += '<span class="status-tag tag-green">API Key Provided</span>'
+else: tags_html += '<span class="status-tag tag-red">API Key Missing</span>'
 
-if details_ready:
-    tags_html += '<span class="status-tag tag-green">Business Details Provided</span>'
-else:
-    tags_html += '<span class="status-tag tag-red">Business Details Missing</span>'
+if details_ready: tags_html += '<span class="status-tag tag-green">Business Details Provided</span>'
+else: tags_html += '<span class="status-tag tag-red">Business Details Missing</span>'
 st.markdown(tags_html, unsafe_allow_html=True)
 
+if is_ready: st.markdown('<style>div.stButton > button {background-color: #4CAF50; color: white; border-color: #4CAF50;}</style>', unsafe_allow_html=True)
 
-# Apply green color to button if ready
-if is_ready:
-    st.markdown('<style>div.stButton > button {background-color: #4CAF50; color: white; border-color: #4CAF50;}</style>', unsafe_allow_html=True)
-
-generate_btn = st.button("Generate Topics", type="primary")
-
-if generate_btn:
+if st.button("Generate Topics", type="primary"):
     if not is_ready:
         st.error("Action Required: Please provide a valid API key and sufficient business details in the sidebar.")
     else:
-        api_key = st.session_state.api_key
-        guidelines = st.session_state.guidelines
-        industry = st.session_state.industry
-        tone = st.session_state.tone
-        audience_input = st.session_state.audience_input
-        product_input = st.session_state.product_input
-        
         with st.spinner("Generating topics... This may take up to a minute."):
             current_date = datetime.now().strftime('%B %d, %Y')
-            
             system_prompt = """You are a strategic content and marketing analyst. Your task is to generate two distinct sets of guest post topics based on the provided business details and the current date. The topic generation must be guided by the marketing funnel principles (ToFu, MoFu, BoFu).
 
             First, analyze the provided text (which may be copywriting guidelines or a collection of details) to extract the business's industry, tone, target audiences, and products/services. When you identify a product, service, or event, summarize it into a short, clear name (e.g., "AI Security Solution" or "Annual Tech Conference") for the `productName` or `eventName` field. Do not use the entire descriptive text from the input.
@@ -501,20 +501,17 @@ if generate_btn:
             """
 
             user_query = f"Current Date: {current_date}\n\n"
-
-            if guidelines:
-                user_query += f"Full Copywriting Guidelines:\n---\n{guidelines}\n---\n"
-                optional_inputs = {"Specific Industry/Niche": industry, "Specific Branding Tone/Voice": tone, "Specific Target Audiences": audience_input, "Specific Products/Services": product_input}
+            if st.session_state.guidelines:
+                user_query += f"Full Copywriting Guidelines:\n---\n{st.session_state.guidelines}\n---\n"
+                optional_inputs = {"Specific Industry/Niche": st.session_state.industry, "Specific Branding Tone/Voice": st.session_state.tone, "Specific Target Audiences": st.session_state.audience_input, "Specific Products/Services": st.session_state.product_input}
                 if st.session_state.analysis_results:
                     optional_details = "\n".join([f"- {key}: {value}" for key, value in optional_inputs.items() if value and value != st.session_state.analysis_results.get(key.lower().replace('specific ', '').replace(' ', '_'))])
                 else:
                     optional_details = "\n".join([f"- {key}: {value}" for key, value in optional_inputs.items() if value])
-
-                if optional_details:
-                    user_query += f"\nSupplemental Details from Optional Fields:\n{optional_details}"
+                if optional_details: user_query += f"\nSupplemental Details from Optional Fields:\n{optional_details}"
             else: 
                 user_query += "Business Details:\n"
-                primary_inputs = {"Industry/Niche": industry, "Branding Tone/Voice": tone, "Target Audiences": audience_input, "Products/Services to Highlight": product_input}
+                primary_inputs = {"Industry/Niche": st.session_state.industry, "Branding Tone/Voice": st.session_state.tone, "Target Audiences": st.session_state.audience_input, "Products/Services to Highlight": st.session_state.product_input}
                 primary_details = "\n".join([f"- {key}: {value}" for key, value in primary_inputs.items() if value])
                 user_query += primary_details
 
@@ -526,7 +523,7 @@ if generate_btn:
             timely_topics_properties = {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"eventName": {"type": "STRING", "description": "A short, summarized name for the event or holiday (e.g., 'Q4 Sales Kickoff')."}, "funnels": {"type": "ARRAY", "items": funnel_properties}}, "required": ["eventName", "funnels"]}}
             schema = {"type": "OBJECT", "properties": {"productBasedTopics": product_based_topics_properties, "timelyTopics": timely_topics_properties}, "required": ["productBasedTopics", "timelyTopics"]}
 
-            api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key={api_key}"
+            api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key={st.session_state.api_key}"
             payload = {"contents": [{"parts": [{"text": user_query}]}], "systemInstruction": {"parts": [{"text": system_prompt}]}, "generationConfig": {"responseMimeType": "application/json", "responseSchema": schema}}
             options = {'headers': {'Content-Type': 'application/json'}, 'body': json.dumps(payload)}
             
@@ -541,7 +538,7 @@ if generate_btn:
                     text_content = result.get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', '')
                     if text_content:
                         data = json.loads(text_content)
-                        st.session_state.generated_data = data # Save data for export
+                        st.session_state.generated_data = data
                         
                         with results_placeholder.container():
                             st.header("Generated Topics", divider="rainbow")
@@ -564,8 +561,9 @@ if generate_btn:
                                     create_topic_group(event_data.get('eventName'), event_data.get('funnels', []), 'Event/Holiday')
                             
                             st.divider()
-                            if st.button("Export to Google Sheets"):
-                                export_to_gsheet(st.session_state.generated_data)
+                            if GSPREAD_AVAILABLE and "gcp_service_account" in st.secrets:
+                                if st.button("Export to Google Sheets"):
+                                    export_to_gsheet(st.session_state.generated_data)
                     else:
                         results_placeholder.error("No content received from API.")
                 except (json.JSONDecodeError, IndexError, KeyError) as e:
