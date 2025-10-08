@@ -3,6 +3,8 @@ import requests
 import json
 from datetime import datetime
 from bs4 import BeautifulSoup
+import gspread
+from google.oauth2.service_account import Credentials
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -137,6 +139,35 @@ with st.expander("How to Get a Google AI API Key"):
     - Paste this key into the **"Enter Google API Key"** field in the Topic Generator's sidebar.
     """)
 
+with st.expander("Setup Google Sheets Export (Optional)"):
+    st.markdown("""
+    To enable the "Export to Google Sheets" feature, follow these one-time setup steps. This allows the app to securely create and write to a new Google Sheet in the Google Drive.
+
+    **1. Create a Google Cloud Project & Enable APIs**
+    - Go to the [Google Cloud Console](https://console.cloud.google.com/) and create a new project (or select an existing one).
+    - In that project, enable two APIs: **Google Drive API** and **Google Sheets API**. Search for them in the search bar at the top and click "Enable".
+
+    **2. Create a Service Account**
+    - In the Google Cloud Console, navigate to "IAM & Admin" > "Service Accounts".
+    - Click "+ CREATE SERVICE ACCOUNT".
+    - Give it a name (e.g., `topic-generator-sheets`) and a description. Click "CREATE AND CONTINUE".
+    - For "Role", select "Project" > "Editor". Click "CONTINUE", then "DONE".
+
+    **3. Generate and Copy Credentials**
+    - Find the newly created service account in the list. Click the three dots under "Actions" and select "Manage keys".
+    - Click "ADD KEY" > "Create new key".
+    - Choose **JSON** as the key type and click "CREATE". A JSON file will be downloaded.
+    - Open the JSON file. The contents are the credentials.
+
+    **4. Add Credentials to Streamlit Secrets**
+    - In the Streamlit app, click "Manage app" > "Settings" > "Secrets".
+    - Create a new secret named `gcp_service_account` and paste the entire content of the downloaded JSON file into the text box.
+    - Click "Save". The app will reboot.
+
+    The export feature is now ready to use.
+    """)
+
+
 # --- Initialize Session State ---
 if 'api_key' not in st.session_state: st.session_state.api_key = ""
 if 'industry' not in st.session_state: st.session_state.industry = ""
@@ -146,6 +177,7 @@ if 'product_input' not in st.session_state: st.session_state.product_input = ""
 if 'guidelines' not in st.session_state: st.session_state.guidelines = ""
 if 'analysis_results' not in st.session_state: st.session_state.analysis_results = None
 if 'analyzed_url' not in st.session_state: st.session_state.analyzed_url = ""
+if 'generated_data' not in st.session_state: st.session_state.generated_data = None
 
 
 # --- Functions ---
@@ -264,6 +296,56 @@ def create_topic_group(group_name, funnels, group_label):
                                 st.caption(f"Rationale: {topic.get('rationale', 'No Rationale')}")
                                 st.markdown("---")
 
+def flatten_data(data):
+    """Flattens the nested topic data for spreadsheet export."""
+    rows = []
+    
+    def process_group(group_data, category, group_key, label):
+        for item in group_data.get(group_key, []):
+            group_name = item.get(label)
+            for funnel in item.get('funnels', []):
+                for audience in funnel.get('audiences', []):
+                    for pub in audience.get('publications', []):
+                        for topic in pub.get('topics', []):
+                            rows.append([
+                                category,
+                                group_name,
+                                funnel.get('funnelStage'),
+                                audience.get('audienceName'),
+                                pub.get('publicationNiche'),
+                                topic.get('topic'),
+                                topic.get('suggestedHeadline'),
+                                topic.get('rationale')
+                            ])
+
+    process_group(data, 'Product/Service Topics', 'productBasedTopics', 'productName')
+    process_group(data, 'Timely & Event-Based Topics', 'timelyTopics', 'eventName')
+    return rows
+
+def export_to_gsheet(data):
+    """Exports flattened data to a new Google Sheet."""
+    try:
+        creds_dict = st.secrets["gcp_service_account"]
+        creds = Credentials.from_service_account_info(creds_dict)
+        client = gspread.authorize(creds)
+
+        flat_data = flatten_data(data)
+        if not flat_data:
+            st.warning("No data to export.")
+            return
+
+        spreadsheet = client.create(f"Topic Generator Output - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        worksheet = spreadsheet.get_worksheet(0)
+        
+        header = ["Category", "Group Name", "Funnel Stage", "Target Audience", "Publication Niche", "Topic", "Suggested Headline", "Rationale"]
+        worksheet.append_row(header)
+        worksheet.append_rows(flat_data)
+        
+        st.success(f"Successfully exported to Google Sheet! [Open Sheet]({spreadsheet.url})")
+
+    except Exception as e:
+        st.error(f"Failed to export to Google Sheets. Ensure your `gcp_service_account` secret is set up correctly. Error: {e}")
+
 
 # --- Sidebar Logic and Rendering ---
 
@@ -313,11 +395,51 @@ if analyze_btn:
 
 with st.sidebar.expander("3. Business Details", expanded=True):
     st.info("Review or edit the details below before generating topics.")
-    st.text_input("Business Industry/Niche", placeholder="Auto-filled by analysis", key="industry")
-    st.text_input("Branding Tone/Voice", placeholder="Auto-filled by analysis", key="tone")
-    st.text_area("Target Audience", placeholder="Auto-filled by analysis", key="audience_input")
-    st.text_area("Product/Service to Highlight", placeholder="Auto-filled by analysis", key="product_input")
-    st.text_area("Full Copywriting Guidelines / Additional Context", placeholder="Auto-filled by analysis", key="guidelines")
+
+    col1, col2 = st.columns([0.85, 0.15])
+    with col1:
+        st.text_input("Business Industry/Niche", placeholder="Auto-filled by analysis", key="industry")
+    with col2:
+        st.write("") 
+        if st.button("X", key="clear_industry", help="Clear field"):
+            st.session_state.industry = ""
+            st.experimental_rerun()
+
+    col1, col2 = st.columns([0.85, 0.15])
+    with col1:
+        st.text_input("Branding Tone/Voice", placeholder="Auto-filled by analysis", key="tone")
+    with col2:
+        st.write("")
+        if st.button("X", key="clear_tone", help="Clear field"):
+            st.session_state.tone = ""
+            st.experimental_rerun()
+
+    col1, col2 = st.columns([0.85, 0.15])
+    with col1:
+        st.text_area("Target Audience", placeholder="Auto-filled by analysis", key="audience_input")
+    with col2:
+        st.write("")
+        if st.button("X", key="clear_audience", help="Clear field"):
+            st.session_state.audience_input = ""
+            st.experimental_rerun()
+
+    col1, col2 = st.columns([0.85, 0.15])
+    with col1:
+        st.text_area("Product/Service to Highlight", placeholder="Auto-filled by analysis", key="product_input")
+    with col2:
+        st.write("")
+        if st.button("X", key="clear_product", help="Clear field"):
+            st.session_state.product_input = ""
+            st.experimental_rerun()
+            
+    col1, col2 = st.columns([0.85, 0.15])
+    with col1:
+        st.text_area("Full Copywriting Guidelines / Additional Context", placeholder="Auto-filled by analysis", key="guidelines")
+    with col2:
+        st.write("")
+        if st.button("X", key="clear_guidelines", help="Clear field"):
+            st.session_state.guidelines = ""
+            st.experimental_rerun()
 
 
 # --- Main Window Button and Topic Generation Logic ---
@@ -419,6 +541,7 @@ if generate_btn:
                     text_content = result.get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', '')
                     if text_content:
                         data = json.loads(text_content)
+                        st.session_state.generated_data = data # Save data for export
                         
                         with results_placeholder.container():
                             st.header("Generated Topics", divider="rainbow")
@@ -439,6 +562,10 @@ if generate_btn:
                                 st.subheader("2. Timely & Event-Based Topics")
                                 for event_data in data["timelyTopics"]:
                                     create_topic_group(event_data.get('eventName'), event_data.get('funnels', []), 'Event/Holiday')
+                            
+                            st.divider()
+                            if st.button("Export to Google Sheets"):
+                                export_to_gsheet(st.session_state.generated_data)
                     else:
                         results_placeholder.error("No content received from API.")
                 except (json.JSONDecodeError, IndexError, KeyError) as e:
