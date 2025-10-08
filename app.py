@@ -127,44 +127,6 @@ def validate_api_key(api_key):
     except requests.RequestException:
         return False
 
-# --- Sidebar Inputs ---
-with st.sidebar.expander("1. Google API Key", expanded=True):
-    api_key_input = st.text_input("Enter Google API Key", type="password", help="Your key is saved for the current session.", value=st.session_state.api_key)
-    st.session_state.api_key = api_key_input
-    
-    validate_btn = st.button("Validate API Key")
-    if validate_btn:
-        if st.session_state.api_key:
-            if validate_api_key(st.session_state.api_key):
-                st.success("API Key is valid!")
-            else:
-                st.error("API Key is not valid.")
-        else:
-            st.warning("Please enter an API Key to validate.")
-
-
-with st.sidebar.expander("2. Website Analysis", expanded=True):
-    website_url = st.text_input("Enter Website URL")
-    analyze_btn = st.button("Analyze Website")
-
-with st.sidebar.expander("3. Business Details", expanded=True):
-    st.info("Review or edit the details below before generating topics.")
-    st.text_input("Business Industry/Niche", placeholder="Auto-filled by analysis", key="industry")
-    st.text_input("Branding Tone/Voice", placeholder="Auto-filled by analysis", key="tone")
-    st.text_area("Target Audience", placeholder="Auto-filled by analysis", key="audience_input")
-    st.text_area("Product/Service to Highlight", placeholder="Auto-filled by analysis", key="product_input")
-    st.text_area("Full Copywriting Guidelines / Additional Context", placeholder="Auto-filled by analysis", key="guidelines")
-
-
-# --- Main Window Button and Status ---
-
-st.divider()
-
-generate_btn = st.button("Generate Topics", type="primary")
-
-
-# --- Functions ---
-
 def scrape_website(url):
     """Scrapes the text content from a given URL."""
     try:
@@ -271,9 +233,29 @@ def create_topic_group(group_name, funnels, group_label):
                                 st.markdown("---")
 
 
-# --- Main Logic ---
+# --- Sidebar Logic and Rendering ---
 
-# Website Analysis Logic
+# Expander 1: API Key
+with st.sidebar.expander("1. Google API Key", expanded=True):
+    api_key_input = st.text_input("Enter Google API Key", type="password", help="Your key is saved for the current session.", value=st.session_state.api_key)
+    st.session_state.api_key = api_key_input
+    
+    validate_btn = st.button("Validate API Key")
+    if validate_btn:
+        if st.session_state.api_key:
+            if validate_api_key(st.session_state.api_key):
+                st.success("API Key is valid!")
+            else:
+                st.error("API Key is not valid.")
+        else:
+            st.warning("Please enter an API Key to validate.")
+
+# Expander 2: Website Analysis
+with st.sidebar.expander("2. Website Analysis", expanded=True):
+    website_url = st.text_input("Enter Website URL")
+    analyze_btn = st.button("Analyze Website")
+
+# Website Analysis LOGIC - MUST run before rendering the business details expander
 if analyze_btn:
     api_key = st.session_state.get("api_key") or st.secrets.get("GOOGLE_API_KEY")
     if not api_key:
@@ -301,8 +283,21 @@ if analyze_btn:
                     st.success("Website analyzed!")
                     st.sidebar.info("Review the auto-filled details below and click 'Generate Topics', or edit them for more specific results.")
 
+# Expander 3: Business Details
+with st.sidebar.expander("3. Business Details", expanded=True):
+    st.info("Review or edit the details below before generating topics.")
+    st.text_input("Business Industry/Niche", placeholder="Auto-filled by analysis", key="industry")
+    st.text_input("Branding Tone/Voice", placeholder="Auto-filled by analysis", key="tone")
+    st.text_area("Target Audience", placeholder="Auto-filled by analysis", key="audience_input")
+    st.text_area("Product/Service to Highlight", placeholder="Auto-filled by analysis", key="product_input")
+    st.text_area("Full Copywriting Guidelines / Additional Context", placeholder="Auto-filled by analysis", key="guidelines")
 
-# Topic Generation Logic
+
+# --- Main Window Button and Topic Generation Logic ---
+
+st.divider()
+generate_btn = st.button("Generate Topics", type="primary")
+
 if generate_btn:
     api_key = st.session_state.get("api_key")
     guidelines = st.session_state.guidelines
