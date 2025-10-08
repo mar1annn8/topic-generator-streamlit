@@ -77,8 +77,6 @@ tailored to the business details provided.
 with st.expander("Instructions"):
     with st.expander("How to Use This Tool"):
         st.markdown("""
-        How to Use the Topic Generator Tool for Strategic Content Ideas
-
         This guide explains how to use the Topic Generator tool to create strong, pitch-ready content topics. These ideas can be used for articles, videos, infographics, or any format that fits your strategy.
 
         **1. Understand the Tool**
