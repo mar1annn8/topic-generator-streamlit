@@ -307,24 +307,34 @@ if st.session_state.get('analyze_btn_clicked', False):
 
 with st.sidebar:
     with st.expander("1. Google API Key", expanded=True):
-        st.text_input("Enter Google API Key", type="password", help="Your key is saved for the current session.", key="api_key")
-        if st.button("Validate API Key"):
-            if st.session_state.api_key and validate_api_key(st.session_state.api_key):
-                st.success("Valid!")
-            else:
-                st.error("Invalid!")
-        if st.button("Clear", key="clear_api_key"):
-            st.session_state.api_key = ""
-            st.rerun()
+        api_key_val = st.text_input("Enter Google API Key", type="password", help="Your key is saved for the current session.", value=st.session_state.api_key)
+        st.session_state.api_key = api_key_val
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Validate"):
+                if st.session_state.api_key and validate_api_key(st.session_state.api_key):
+                    st.success("Valid!")
+                else:
+                    st.error("Invalid!")
+        with col2:
+            if st.button("Clear", key="clear_api_key"):
+                st.session_state.api_key = ""
+                st.rerun()
 
     with st.expander("2. Website Analysis", expanded=True):
-        st.text_input("Enter Website URL", key="website_url_input")
-        if st.button("Analyze Website"):
-            st.session_state.analyze_btn_clicked = True
-            st.rerun()
-        if st.button("Clear", key="clear_url"):
-            st.session_state.website_url_input = ""
-            st.rerun()
+        website_url_val = st.text_input("Enter Website URL", value=st.session_state.get("website_url_input", ""))
+        st.session_state.website_url_input = website_url_val
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Analyze Website"):
+                st.session_state.analyze_btn_clicked = True
+                st.rerun()
+        with col2:
+            if st.button("Clear", key="clear_url"):
+                st.session_state.website_url_input = ""
+                st.rerun()
 
     with st.expander("3. Business Details", expanded=True):
         st.info("Review or edit the details below.")
