@@ -77,45 +77,60 @@ tailored to the business details provided.
 with st.expander("Instructions"):
     with st.expander("How to Use This Tool"):
         st.markdown("""
-        **This document provides a step-by-step guide on how to effectively use the Topic Generator tool to create strategic guest post topics for link-building outreach.**
+        How to Use the Topic Generator Tool for Strategic Content Ideas
 
-        **1. Understand the Tool's Purpose**
-        The Topic Generator is an AI-powered tool designed to produce relevant, high-quality topic ideas. It analyzes business information and aligns suggestions with the marketing funnel stages:
-        - **Top of the Funnel (ToFu):** Building awareness.
-        - **Middle of the Funnel (MoFu):** Encouraging consideration.
-        - **Bottom of the Funnel (BoFu):** Driving decisions.
+        This guide explains how to use the Topic Generator tool to create strong, pitch-ready content topics. These ideas can be used for articles, videos, infographics, or any format that fits your strategy.
 
-        The methodology is based on content strategy principles from leading industry resources like SEMRush and Search Engine Land.
+        **1. Understand the Tool**
 
-        **2. Provide Business Details**
-        The tool works by analyzing text to understand the business's needs. For the best results, follow this primary step:
-        - **Paste Full Guidelines into Field 5:** The most effective way to use the generator is to paste the business's complete copywriting guidelines or any other detailed brand document into the text box labeled **"5. Full Copywriting Guidelines / Additional Context."** The AI will analyze this entire document to extract the industry, tone, audiences, and products.
+        The Topic Generator is an AI tool that suggests relevant, high-quality content ideas. It analyzes your business information and organizes topics by stage of the marketing funnel:
 
-        The other fields (1-4) are optional and can be used to add specific details or clarify information if the main document in field 5 is incomplete.
+        - Top of Funnel (ToFu): Builds awareness
+        - Middle of Funnel (MoFu): Encourages consideration
+        - Bottom of Funnel (BoFu): Supports decision-making
 
-        **3. Generate the Topics**
-        Once the business information is entered, click the **"Generate Topics"** button. A loader will appear while the AI processes the request. This may take a few moments.
+        The tool follows proven content strategy methods used by experts at SEMRush and Search Engine Land.
 
-        **4. Review and Understand the Output**
-        The generated topics are organized into two main sections:
-        - **Section 1: Product/Service Topics:** Contains ideas directly related to the business's offerings.
-        - **Section 2: Timely & Event-Based Topics:** Provides ideas relevant to the current date, including upcoming holidays, seasons, or important industry events.
+        **2. Add Business Information**
 
-        Each section follows a clear structure:
-        - **Main Subject:** The specific Product, Service, or Event.
-        - **Marketing Funnel:** Topics are grouped under ToFu, MoFu, or BoFu.
-        - **Target Audience:** The audience persona the topics are for.
-        - **Target Publication:** The suggested niche for guest posting.
+        The tool works best when it has full context. Start by filling out the labeled fields:
 
-        Within each publication niche, there will be at least three topic suggestions, each with three parts:
-        - **Topic:** A short, concise title (max 60 characters) designed for quick pitches. It frames the product as a solution.
-        - **Suggested Headline:** A longer, more engaging headline ready for an article.
-        - **Rationale:** A brief explanation of why the topic is valuable and relevant to the target audience.
+        - Business Industry/Niche: Describe the industry or market your business operates in
+        - Branding Tone/Voice: Share the preferred tone or style of your brand’s communication
+        - Target Audience: Define the audience personas or customer segments you want to reach
+        - Product/Service to Highlight: Mention the specific offering you want the content to focus on
+        - Full Copywriting Guidelines: Paste your complete brand guidelines or any detailed document that explains your tone, audience, products, and positioning. This field is the most important—use it to give the AI full context.
 
-        **Tips for Best Results**
-        - **Prioritize Field 5:** Always try to use a comprehensive document in the main guidelines field for the most context-aware suggestions.
-        - **Check for Specificity:** If the generated topics seem too general, add more specific details to the optional fields to help guide the AI.
-        - **Use as a Starting Point:** The generated ideas are a strong starting point. They should be reviewed by a strategist to ensure perfect alignment with the business's goals before outreach.
+        You can skip the first four fields if your copywriting guidelines already include that information. But if the output feels too general, adding details to those fields can help improve the results.
+
+        **3. Generate Topic Ideas**
+
+        Once the fields are filled out, click the “Generate Topics” button. The tool will take a few moments to process your request.
+
+        **4. View and Understand the Output**
+
+        The results will appear in the main window, just below the “Generate Topics” button. The output includes two parts:
+
+        **Business Analysis Summary**
+
+        This section gives a quick overview of the business:
+
+        - Website URL
+        - Target Audience and Pain Points
+        - Business Services and/or Products
+        - Target Location
+
+        **Topics Table**
+
+        This section contains the suggested content ideas, organized in a table with the following columns: Category, Group Name, Target Audience, Publication Niche, Funnel Stage, Topic, Suggested Headline, Rationale
+
+        Each row in the table represents a content idea. The AI groups topics by product, service, or event, and aligns them with the right funnel stage and audience.
+
+        **Tips for Better Results**
+
+        - Prioritize the Guidelines Field: Use a complete document in the “Full Copywriting Guidelines” field for the most accurate suggestions
+        - Add Specifics When Needed: If the topics feel too broad, use the other fields to guide the AI
+        - Treat as a Starting Point: Review and refine the output before pitching or publishing. A strategist should ensure the ideas match your goals
         """)
 
     with st.expander("How to Start"):
