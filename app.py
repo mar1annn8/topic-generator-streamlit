@@ -569,3 +569,5 @@ if not st.session_state.dataframe.empty:
                 mime="text/plain"
             )
 
+st.markdown(f"<div style='text-align: right; font-size: 0.8em; color: grey;'>Last Updated: 10/08/2025</div>", unsafe_allow_html=True)
+
