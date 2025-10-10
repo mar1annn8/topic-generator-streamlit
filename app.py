@@ -290,7 +290,6 @@ def convert_df_to_csv(df, analysis_data, analyzed_url):
     """Prepares data for CSV export with analysis summary."""
     output = io.StringIO()
     if analysis_data:
-        # Create a DataFrame for the summary to handle commas in values
         summary_df = pd.DataFrame([
             ["Website URL:", analyzed_url],
             ["Target Audience and Pain Points:", analysis_data.get('target_audience_pain_points', 'Not found')],
@@ -298,7 +297,7 @@ def convert_df_to_csv(df, analysis_data, analyzed_url):
             ["Target Location:", analysis_data.get('target_location', 'Not found')]
         ])
         summary_df.to_csv(output, header=False, index=False)
-        output.write("\n") # Blank row
+        output.write("\n")
     
     df.to_csv(output, index=False)
     return output.getvalue().encode('utf-8')
@@ -384,30 +383,24 @@ with st.sidebar:
         st.text_input("Enter Google API Key", type="password", help="Your key is saved for the current session.", key="api_key_input")
         if st.session_state.api_key_input: st.session_state.api_key = st.session_state.api_key_input
         
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("Validate"):
-                if st.session_state.api_key and validate_api_key(st.session_state.api_key):
-                    st.success("Valid!")
-                else:
-                    st.error("Invalid!")
-        with col2:
-            if st.button("Clear", key="clear_api_key"):
-                st.session_state.api_key = ""
-                st.session_state.api_key_input = ""
-                st.rerun()
+        if st.button("Validate"):
+            if st.session_state.api_key and validate_api_key(st.session_state.api_key):
+                st.success("Valid!")
+            else:
+                st.error("Invalid!")
+        if st.button("Clear", key="clear_api_key"):
+            st.session_state.api_key = ""
+            st.session_state.api_key_input = ""
+            st.rerun()
 
     with st.expander("2. Website Analysis", expanded=True):
         st.text_input("Enter Website URL", key="website_url_input")
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("Analyze Website"):
-                st.session_state.analyze_btn_clicked = True
-                st.rerun()
-        with col2:
-            if st.button("Clear", key="clear_url"):
-                st.session_state.website_url_input = ""
-                st.rerun()
+        if st.button("Analyze Website"):
+            st.session_state.analyze_btn_clicked = True
+            st.rerun()
+        if st.button("Clear", key="clear_url"):
+            st.session_state.website_url_input = ""
+            st.rerun()
 
     with st.expander("3. Business Details", expanded=True):
         st.info("Review or edit the details below.")
