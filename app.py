@@ -388,18 +388,11 @@ with st.sidebar:
                 st.success("Valid!")
             else:
                 st.error("Invalid!")
-        if st.button("Clear", key="clear_api_key"):
-            st.session_state.api_key = ""
-            st.session_state.api_key_input = ""
-            st.rerun()
 
     with st.expander("2. Website Analysis", expanded=True):
         st.text_input("Enter Website URL", key="website_url_input")
         if st.button("Analyze Website"):
             st.session_state.analyze_btn_clicked = True
-            st.rerun()
-        if st.button("Clear", key="clear_url"):
-            st.session_state.website_url_input = ""
             st.rerun()
 
     with st.expander("3. Business Details", expanded=True):
@@ -409,13 +402,6 @@ with st.sidebar:
         st.text_area("Target Audience", key="audience_input")
         st.text_area("Product/Service to Highlight", key="product_input")
         st.text_area("Full Copywriting Guidelines", key="guidelines")
-        if st.button("Clear All Details"):
-            st.session_state.industry = ""
-            st.session_state.tone = ""
-            st.session_state.audience_input = ""
-            st.session_state.product_input = ""
-            st.session_state.guidelines = ""
-            st.rerun()
 
 
 # --- Main Window Button and Topic Generation Logic ---
