@@ -204,21 +204,17 @@ def scrape_website(url):
         response.raise_for_status()
         soup = BeautifulSoup(response.content, 'html.parser')
         
-        # Extract text
         for script in soup(["script", "style"]):
             script.extract()
+            
         text = soup.get_text(separator='\n', strip=True)
 
-        # Extract links
         links = set()
         base_netloc = urlparse(url).netloc
         for a_tag in soup.find_all('a', href=True):
             href = a_tag['href']
-            # Join relative URLs with the base URL
             full_url = urljoin(url, href)
-            # Check if the link is internal to the website
             if urlparse(full_url).netloc == base_netloc:
-                # Remove query parameters and fragments
                 clean_url = urljoin(full_url, urlparse(full_url).path)
                 links.add(clean_url)
         
@@ -474,7 +470,7 @@ if generate_btn:
             - 'suggestedHeadline': A longer, more engaging headline suitable for a full article.
             - 'rationale': A brief explanation of the topic's value and relevance.
             - 'anchorText': A descriptive, concise, and relevant anchor text for an internal link, based on the topic. Avoid generic phrases like "click here."
-            - 'destinationPage': From the `List of Available URLs` provided, select the single most relevant URL that aligns with the topic. Follow this priority order: 1. A dedicated product/service page. 2. A relevant blog post. 3. Any other contextually relevant page. 4. If no good match is found, use the base website URL.
+            - 'destinationPage': You MUST select the single most relevant URL from the `List of Available URLs` provided. Your selection must be an exact match from that list. Follow this priority order: 1. A dedicated product/service page. 2. A relevant blog post. 3. Any other contextually relevant page. If no good match is found, use the `Base Website URL` as the fallback. Do not invent or use placeholder URLs like example.com.
             
             The final output must be a single JSON object with two top-level keys: `productBasedTopics` and `timelyTopics`, adhering to the provided schema.
             """
