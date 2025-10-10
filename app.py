@@ -65,6 +65,7 @@ st.markdown("""
 
 
 # --- UI Display ---
+st.markdown("<p style='font-size: 1px;'>&nbsp;</p>", unsafe_allow_html=True) # Spacer to push title down
 st.markdown("<h1 style='background-color: #FFF9C4; padding: 10px; border-radius: 10px;'>Topic Generator</h1>", unsafe_allow_html=True)
 st.markdown("""
 This AI tool generates topic ideas based on the marketing funnel concepts from 
