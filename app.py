@@ -286,19 +286,8 @@ def fetch_with_retry(url, options, retries=3):
     error_msg = f"The server responded with an error (Status {response.status_code}) after multiple retries."
     return None, error_msg
 
-def convert_df_to_csv(df, analysis_data, analyzed_url):
-    """Prepares data for CSV export with analysis summary."""
-    output = io.StringIO()
-    if analysis_data:
-        output.write("Business Analysis Summary\n")
-        output.write(f"Website URL:,{analyzed_url}\n")
-        output.write(f"Target Audience and Pain Points:,{analysis_data.get('target_audience_pain_points', 'Not found')}\n")
-        output.write(f"Business Services and/or Products:,{analysis_data.get('services_and_products', 'Not found')}\n")
-        output.write(f"Target Location:,{analysis_data.get('target_location', 'Not found')}\n")
-        output.write("\n") # Blank row
-    
-    df.to_csv(output, index=False)
-    return output.getvalue().encode('utf-8')
+def convert_df_to_csv(df):
+   return df.to_csv(index=False).encode('utf-8')
 
 def prepare_dataframe(data):
     """Flattens the nested topic data into a DataFrame."""
@@ -470,7 +459,7 @@ if generate_btn:
             - 'suggestedHeadline': A longer, more engaging headline suitable for a full article.
             - 'rationale': A brief explanation of the topic's value and relevance.
             - 'anchorText': A descriptive, concise, and relevant anchor text for an internal link, based on the topic. Avoid generic phrases like "click here."
-            - 'destinationPage': You MUST select the single most relevant URL from the `List of Available URLs` provided. Your selection must be an exact match from that list. Follow this priority order: 1. A dedicated product/service page. 2. A relevant blog post. 3. Any other contextually relevant page. If no good match is found, use the `Base Website URL` as the fallback. Do not invent or use placeholder URLs like example.com.
+            - 'destinationPage': You MUST select the single most relevant URL from the `List of Available URLs` provided. Your selection must be an exact match from that list. Follow this strict priority order: 1. A dedicated product/service page. 2. A relevant blog post. 3. Any other contextually relevant page. If no good match is found, use the `Base Website URL` as the fallback. Do not invent or use placeholder URLs like example.com.
             
             The final output must be a single JSON object with two top-level keys: `productBasedTopics` and `timelyTopics`, adhering to the provided schema.
             """
