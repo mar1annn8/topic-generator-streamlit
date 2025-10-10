@@ -71,7 +71,7 @@ st.markdown("""
 This AI tool generates topic ideas based on the marketing funnel concepts from 
 [SEMRush](https://www.semrush.com/blog/content-marketing-funnel/), 
 [Search Engine Land](https://searchengineland.com/how-to-drive-the-funnel-through-content-marketing-and-link-building-374343), and
-Google's guidelines on creating [helpful, reliable, people-first content](https://developers.google.com/search/docs/fundamentals/creating-helpful-content).
+Google's guidelines on creating [helpful, reliable, people-first content](https://developers.google.com/search/docs/fundamentals/creating-helpful-content) and [link best practices](https://developers.google.com/search/docs/crawling-indexing/links-crawlable).
 This approach ensures topics are valuable to the target audience by emphasizing expertise, authoritativeness, and trustworthiness (E-E-A-T).
 """)
 
@@ -123,7 +123,7 @@ with st.expander("Instructions"):
 
         **Topics Table**
 
-        This section contains the suggested content ideas, organized in a table with the following columns: Category, Group Name, Target Audience, Publication Niche, Funnel Stage, Topic, Suggested Headline, Rationale
+        This section contains the suggested content ideas, organized in a table with the following columns: Category, Group Name, Target Audience, Publication Niche, Funnel Stage, Topic, Suggested Headline, Rationale, Anchor text, Destination Page
 
         Each row in the table represents a content idea. The AI groups topics by product, service, or event, and aligns them with the right funnel stage and audience.
 
@@ -291,7 +291,7 @@ def convert_df_to_csv(df, analysis_data, analyzed_url):
 def prepare_dataframe(data):
     """Flattens the nested topic data into a DataFrame."""
     rows = []
-    header = ["Category", "Group Name", "Target Audience", "Publication Niche", "Funnel Stage", "Topic", "Suggested Headline", "Rationale"]
+    header = ["Category", "Group Name", "Target Audience", "Publication Niche", "Funnel Stage", "Topic", "Suggested Headline", "Rationale", "Anchor text", "Destination Page"]
     
     def process_group(group_data, category, group_key, label):
         for item in group_data.get(group_key, []):
@@ -308,7 +308,9 @@ def prepare_dataframe(data):
                                 "Funnel Stage": funnel.get('funnelStage'),
                                 "Topic": topic.get('topic'),
                                 "Suggested Headline": topic.get('suggestedHeadline'),
-                                "Rationale": topic.get('rationale')
+                                "Rationale": topic.get('rationale'),
+                                "Anchor text": topic.get('anchorText'),
+                                "Destination Page": topic.get('destinationPage')
                             })
 
     process_group(data, 'Product/Service', 'productBasedTopics', 'productName')
