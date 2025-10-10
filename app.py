@@ -5,6 +5,7 @@ from datetime import datetime
 from bs4 import BeautifulSoup
 import pandas as pd
 import io
+from urllib.parse import urljoin, urlparse
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -178,6 +179,7 @@ if 'product_input' not in st.session_state: st.session_state.product_input = ""
 if 'guidelines' not in st.session_state: st.session_state.guidelines = ""
 if 'analysis_results' not in st.session_state: st.session_state.analysis_results = None
 if 'analyzed_url' not in st.session_state: st.session_state.analyzed_url = ""
+if 'scraped_links' not in st.session_state: st.session_state.scraped_links = []
 if 'generated_data' not in st.session_state: st.session_state.generated_data = None
 if 'analyze_btn_clicked' not in st.session_state: st.session_state.analyze_btn_clicked = False
 if 'dataframe' not in st.session_state: st.session_state.dataframe = pd.DataFrame()
@@ -195,20 +197,34 @@ def validate_api_key(api_key):
         return False
 
 def scrape_website(url):
-    """Scrapes the text content from a given URL."""
+    """Scrapes the text content and internal links from a given URL."""
     try:
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
         response = requests.get(url, headers=headers, timeout=10)
         response.raise_for_status()
         soup = BeautifulSoup(response.content, 'html.parser')
         
+        # Extract text
         for script in soup(["script", "style"]):
             script.extract()
-            
         text = soup.get_text(separator='\n', strip=True)
-        return text[:15000], None
+
+        # Extract links
+        links = set()
+        base_netloc = urlparse(url).netloc
+        for a_tag in soup.find_all('a', href=True):
+            href = a_tag['href']
+            # Join relative URLs with the base URL
+            full_url = urljoin(url, href)
+            # Check if the link is internal to the website
+            if urlparse(full_url).netloc == base_netloc:
+                # Remove query parameters and fragments
+                clean_url = urljoin(full_url, urlparse(full_url).path)
+                links.add(clean_url)
+        
+        return text[:15000], list(links), None
     except requests.RequestException as e:
-        return None, f"Failed to fetch website content: {e}"
+        return None, None, f"Failed to fetch website content: {e}"
 
 def analyze_scraped_text(api_key, text):
     """Uses AI to analyze scraped text and extract business details."""
@@ -343,7 +359,7 @@ if st.session_state.get('analyze_btn_clicked', False):
         st.error("Please enter a website URL.")
     else:
         with st.spinner("Scraping and analyzing website..."):
-            scraped_text, error = scrape_website(website_url)
+            scraped_text, scraped_links, error = scrape_website(website_url)
             if error:
                 st.error(error)
             else:
@@ -353,6 +369,7 @@ if st.session_state.get('analyze_btn_clicked', False):
                 else:
                     st.session_state.analysis_results = analysis
                     st.session_state.analyzed_url = website_url
+                    st.session_state.scraped_links = scraped_links
                     st.session_state.industry = analysis.get('industry', '')
                     st.session_state.tone = analysis.get('tone', '')
                     st.session_state.audience_input = analysis.get('target_audience_pain_points', '')
@@ -457,12 +474,18 @@ if generate_btn:
             - 'suggestedHeadline': A longer, more engaging headline suitable for a full article.
             - 'rationale': A brief explanation of the topic's value and relevance.
             - 'anchorText': A descriptive, concise, and relevant anchor text for an internal link, based on the topic. Avoid generic phrases like "click here."
-            - 'destinationPage': A relevant, crawlable URL from the analyzed website that aligns with the topic and anchor text. If no specific URL can be determined, use the base website URL provided.
+            - 'destinationPage': From the `List of Available URLs` provided, select the single most relevant URL that aligns with the topic. Follow this priority order: 1. A dedicated product/service page. 2. A relevant blog post. 3. Any other contextually relevant page. 4. If no good match is found, use the base website URL.
             
             The final output must be a single JSON object with two top-level keys: `productBasedTopics` and `timelyTopics`, adhering to the provided schema.
             """
 
             user_query = f"Current Date: {current_date}\n\n"
+            if st.session_state.analyzed_url:
+                 user_query += f"Base Website URL for Destination Pages: {st.session_state.analyzed_url}\n"
+                 if st.session_state.scraped_links:
+                     user_query += "List of Available URLs to choose from for the 'destinationPage':\n" + "\n".join(st.session_state.scraped_links) + "\n\n"
+
+
             if st.session_state.guidelines:
                 user_query += f"Full Copywriting Guidelines:\n---\n{st.session_state.guidelines}\n---\n"
                 optional_inputs = {"Specific Industry/Niche": st.session_state.industry, "Specific Branding Tone/Voice": st.session_state.tone, "Specific Target Audiences": st.session_state.audience_input, "Specific Products/Services": st.session_state.product_input}
