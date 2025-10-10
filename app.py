@@ -69,9 +69,10 @@ st.markdown("<p style='font-size: 1px;'>&nbsp;</p>", unsafe_allow_html=True) # S
 st.markdown("<h1 style='background-color: #FFF9C4; padding: 10px; border-radius: 10px;'>Topic Generator</h1>", unsafe_allow_html=True)
 st.markdown("""
 This AI tool generates topic ideas based on the marketing funnel concepts from 
-[SEMRush](https://www.semrush.com/blog/content-marketing-funnel/) and 
-[Search Engine Land](https://searchengineland.com/how-to-drive-the-funnel-through-content-marketing-and-link-building-374343), 
-tailored to the business details provided.
+[SEMRush](https://www.semrush.com/blog/content-marketing-funnel/), 
+[Search Engine Land](https://searchengineland.com/how-to-drive-the-funnel-through-content-marketing-and-link-building-374343), and
+Google's guidelines on creating [helpful, reliable, people-first content](https://developers.google.com/search/docs/fundamentals/creating-helpful-content).
+This approach ensures topics are valuable to the target audience by emphasizing expertise, authoritativeness, and trustworthiness (E-E-A-T).
 """)
 
 with st.expander("Instructions"):
