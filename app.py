@@ -220,7 +220,7 @@ def scrape_website(url):
         
         return text[:15000], list(links), None
     except requests.RequestException as e:
-        return None, None, f"Failed to fetch website content: {e}"
+        return None, [], f"Failed to fetch website content: {e}"
 
 def analyze_scraped_text(api_key, text):
     """Uses AI to analyze scraped text and extract business details."""
@@ -389,14 +389,15 @@ with st.sidebar:
             else:
                 st.error("Invalid!")
 
-    with st.expander("2. Website Analysis", expanded=True):
+    with st.expander("2. Business Details", expanded=True):
+        st.subheader("Website Analysis")
         st.text_input("Enter Website URL", key="website_url_input")
         if st.button("Analyze Website"):
             st.session_state.analyze_btn_clicked = True
             st.rerun()
-
-    with st.expander("3. Business Details", expanded=True):
-        st.info("Review or edit the details below.")
+        
+        st.divider()
+        st.info("Or enter/edit the details manually below.")
         st.text_input("Business Industry/Niche", key="industry")
         st.text_input("Branding Tone/Voice", key="tone")
         st.text_area("Target Audience", key="audience_input")
@@ -461,7 +462,10 @@ if generate_btn:
             if st.session_state.analyzed_url:
                  user_query += f"Base Website URL for Destination Pages: {st.session_state.analyzed_url}\n"
                  if st.session_state.scraped_links:
-                     user_query += "List of Available URLs to choose from for the 'destinationPage':\n" + "\n".join(st.session_state.scraped_links) + "\n\n"
+                     user_query += "List of Available URLs to choose from for the 'destinationPage' (with their anchor text for context):\n"
+                     for page in st.session_state.scraped_links:
+                         user_query += f"- {page['url']} (Context: {page['title']})\n"
+                     user_query += "\n"
 
 
             if st.session_state.guidelines:
@@ -527,6 +531,19 @@ if not st.session_state.dataframe.empty:
             st.markdown(f"**Business Services and/or Products:** {analysis.get('services_and_products', 'Not found')}")
             st.markdown(f"**Target Location:** {analysis.get('target_location', 'Not found')}")
     
+    if st.session_state.scraped_links:
+        st.subheader("Available Pages for Linking")
+        available_pages_df = pd.DataFrame(st.session_state.scraped_links)
+        st.dataframe(available_pages_df, use_container_width=True)
+        csv_pages = convert_df_to_csv(available_pages_df, None, None)
+        st.download_button(
+            label="Download Available Pages as CSV",
+            data=csv_pages,
+            file_name="available_pages.csv",
+            mime="text/csv"
+        )
+
+
     st.subheader("Filter and Search Topics")
     
     df_to_display = st.session_state.dataframe.copy()
