@@ -391,6 +391,7 @@ with st.sidebar:
 
     with st.expander("2. Business Details", expanded=True):
         st.subheader("Website Analysis")
+        st.info("Enter a URL to auto-populate the fields below. You can then edit them manually.")
         st.text_input("Enter Website URL", key="website_url_input")
         if st.button("Analyze Website"):
             st.session_state.analyze_btn_clicked = True
