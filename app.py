@@ -17,15 +17,14 @@ st.markdown("""
     <style>
         /* Reduce top padding */
         .block-container {
-            padding-top: 2rem;
+            padding-top: 1rem;
         }
         [data-testid="stSidebar"] > div:first-child {
-            padding-top: 2rem;
+            padding-top: 1rem;
         }
 
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
-        header {visibility: hidden;}
         
         .status-tag {
             display: inline-block;
@@ -164,6 +163,9 @@ with st.expander("Instructions"):
         - Find the new key in the list and click the copy icon next to the long string of letters and numbers to copy it to the clipboard.
         - Paste this key into the **"Enter Google API Key"** field in the Topic Generator's sidebar.
         """)
+        
+st.markdown(f"<div style='text-align: right; font-size: 0.8em; color: grey;'>Last Updated: 10/08/2025</div>", unsafe_allow_html=True)
+
 
 # --- Initialize Session State ---
 if 'api_key' not in st.session_state: st.session_state.api_key = ""
