@@ -452,10 +452,12 @@ if generate_btn:
             1.  **Product-Based Topics:** Ideas directly related to the business's products/services.
             2.  **Timely & Event-Based Topics:** Based on the 'Current Date' and the business's industry, identify relevant upcoming holidays, industry events, or seasonal business milestones and create topics for them.
 
-            For each generated topic, you must provide three elements:
+            For each generated topic, you must provide five elements:
             - 'topic': A short, concise title (MAXIMUM 60 characters) that frames the product/service as a solution to a problem relevant to the funnel stage.
             - 'suggestedHeadline': A longer, more engaging headline suitable for a full article.
             - 'rationale': A brief explanation of the topic's value and relevance.
+            - 'anchorText': A descriptive, concise, and relevant anchor text for an internal link, based on the topic. Avoid generic phrases like "click here."
+            - 'destinationPage': A relevant, crawlable URL from the analyzed website that aligns with the topic and anchor text. If no specific URL can be determined, use the base website URL provided.
             
             The final output must be a single JSON object with two top-level keys: `productBasedTopics` and `timelyTopics`, adhering to the provided schema.
             """
@@ -475,7 +477,7 @@ if generate_btn:
                 primary_details = "\n".join([f"- {key}: {value}" for key, value in primary_inputs.items() if value])
                 user_query += primary_details
 
-            topic_properties = {"type": "OBJECT", "properties": {"topic": {"type": "STRING"}, "suggestedHeadline": {"type": "STRING"}, "rationale": {"type": "STRING"}}, "required": ["topic", "suggestedHeadline", "rationale"]}
+            topic_properties = {"type": "OBJECT", "properties": {"topic": {"type": "STRING"}, "suggestedHeadline": {"type": "STRING"}, "rationale": {"type": "STRING"}, "anchorText": {"type": "STRING"}, "destinationPage": {"type": "STRING"}}, "required": ["topic", "suggestedHeadline", "rationale", "anchorText", "destinationPage"]}
             publication_properties = {"type": "OBJECT", "properties": {"publicationNiche": {"type": "STRING"}, "topics": {"type": "ARRAY", "items": topic_properties}}, "required": ["publicationNiche", "topics"]}
             audience_properties = {"type": "OBJECT", "properties": {"audienceName": {"type": "STRING"}, "publications": {"type": "ARRAY", "items": publication_properties}}, "required": ["audienceName", "publications"]}
             funnel_properties = {"type": "OBJECT", "properties": {"funnelStage": {"type": "STRING", "enum": ["ToFu", "MoFu", "BoFu"]}, "audiences": {"type": "ARRAY", "items": audience_properties}}, "required": ["funnelStage", "audiences"]}
