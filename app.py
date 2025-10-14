@@ -6,6 +6,7 @@ from bs4 import BeautifulSoup
 import pandas as pd
 import io
 from urllib.parse import urljoin, urlparse
+import os
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -167,7 +168,13 @@ with st.expander("Instructions"):
         - Paste this key into the **"Enter Google API Key"** field in the Topic Generator's sidebar.
         """)
         
-st.markdown(f"<div style='text-align: right; font-size: 0.8em; color: grey;'>Last Updated: 10/08/2025</div>", unsafe_allow_html=True)
+try:
+    mod_time = os.path.getmtime(__file__)
+    last_updated_date = datetime.fromtimestamp(mod_time).strftime('%m/%d/%Y')
+except Exception:
+    last_updated_date = "N/A" # Fallback if file path is not accessible
+    
+st.markdown(f"<div style='text-align: right; font-size: 0.8em; color: grey;'>Last Updated: {last_updated_date}</div>", unsafe_allow_html=True)
 
 
 # --- Initialize Session State ---
@@ -183,6 +190,7 @@ if 'scraped_links' not in st.session_state: st.session_state.scraped_links = []
 if 'generated_data' not in st.session_state: st.session_state.generated_data = None
 if 'analyze_btn_clicked' not in st.session_state: st.session_state.analyze_btn_clicked = False
 if 'dataframe' not in st.session_state: st.session_state.dataframe = pd.DataFrame()
+if 'available_pages_df' not in st.session_state: st.session_state.available_pages_df = pd.DataFrame()
 
 
 # --- Functions ---
@@ -222,7 +230,8 @@ def scrape_website(url):
                 page_title = a_tag.string.strip() if a_tag.string else "No Anchor Text"
                 pages.append({
                     'URL': clean_url,
-                    'Page Title': page_title
+                    'Page Title': page_title,
+                    'Meta Description': '' # Meta is too slow to fetch for every link.
                 })
         
         unique_pages = list({p['URL']: p for p in pages}.values())
@@ -295,21 +304,8 @@ def fetch_with_retry(url, options, retries=3):
     error_msg = f"The server responded with an error (Status {response.status_code}) after multiple retries."
     return None, error_msg
 
-def convert_df_to_csv(df, analysis_data, analyzed_url):
-    """Prepares data for CSV export with analysis summary."""
-    output = io.StringIO()
-    if analysis_data:
-        summary_df = pd.DataFrame([
-            ["Website URL:", analyzed_url],
-            ["Target Audience and Pain Points:", analysis_data.get('target_audience_pain_points', 'Not found')],
-            ["Business Services and/or Products:", analysis_data.get('services_and_products', 'Not found')],
-            ["Target Location:", analysis_data.get('target_location', 'Not found')]
-        ])
-        summary_df.to_csv(output, header=False, index=False)
-        output.write("\n")
-    
-    df.to_csv(output, index=False)
-    return output.getvalue().encode('utf-8')
+def convert_df_to_csv(df):
+   return df.to_csv(index=False).encode('utf-8')
 
 def prepare_dataframe(data):
     """Flattens the nested topic data into a DataFrame."""
