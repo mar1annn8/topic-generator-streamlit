@@ -194,7 +194,6 @@ if 'available_pages_df' not in st.session_state: st.session_state.available_page
 
 
 # --- Functions ---
-STOPWORDS = set(stopwords.words("english"))
 
 def validate_api_key(api_key):
     """Checks if the API key is valid by making a simple request."""
@@ -205,45 +204,8 @@ def validate_api_key(api_key):
     except requests.RequestException:
         return False
 
-def summarize_text(text, sentence_count=2):
-    """Simple extractive summary."""
-    sentences = re.split(r'(?<=[.!?]) +', text)
-    sentences = sorted(sentences, key=len, reverse=True)
-    return " ".join(sentences[:sentence_count])
-
-def suggest_focus_keyword(text, top_n=1):
-    """Suggests a focus keyword based on word frequency."""
-    words = re.findall(r"\b[a-zA-Z]{3,}\b", text.lower())
-    filtered = [w for w in words if w not in STOPWORDS]
-    freq = Counter(filtered)
-    return ", ".join([w for w, _ in freq.most_common(top_n)])
-
-
-def scrape_page_details(url, headers):
-    """Scrapes details from a single page."""
-    try:
-        response = requests.get(url, headers=headers, timeout=5)
-        response.raise_for_status()
-        soup = BeautifulSoup(response.content, 'html.parser')
-
-        title = soup.title.string.strip() if soup.title else "No Title"
-        meta_tag = soup.find('meta', attrs={'name': 'description'})
-        meta = meta_tag['content'].strip() if meta_tag else "No Meta Description"
-        
-        for script in soup(["script", "style"]):
-            script.extract()
-        content = soup.get_text(separator='\n', strip=True)
-        
-        summary = summarize_text(content)
-        keyword = suggest_focus_keyword(content)
-
-        return {'URL': url, 'Page Title': title, 'Meta Description': meta, 'Content Summary': summary, 'Suggested Focus Keyword': keyword}
-    except requests.RequestException:
-        return None
-
-
 def scrape_website(url):
-    """Scrapes the main page and extracts internal links and their details."""
+    """Scrapes the text content and internal links from a given URL."""
     try:
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
         response = requests.get(url, headers=headers, timeout=10)
@@ -253,9 +215,9 @@ def scrape_website(url):
         for script in soup(["script", "style"]):
             script.extract()
             
-        main_text = soup.get_text(separator='\n', strip=True)
+        text = soup.get_text(separator='\n', strip=True)
 
-        links = set()
+        pages = []
         base_netloc = urlparse(url).netloc
         for a_tag in soup.find_all('a', href=True):
             href = a_tag['href']
@@ -265,15 +227,15 @@ def scrape_website(url):
             full_url = urljoin(url, href)
             if urlparse(full_url).netloc == base_netloc:
                 clean_url = urljoin(full_url, urlparse(full_url).path)
-                links.add(clean_url)
+                page_title = a_tag.string.strip() if a_tag.string else "No Anchor Text"
+                pages.append({
+                    'URL': clean_url,
+                    'Page Title': page_title
+                })
         
-        pages = []
-        for link in list(links)[:20]: # Limit to 20 pages to avoid timeout
-             details = scrape_page_details(link, headers)
-             if details:
-                 pages.append(details)
+        unique_pages = list({p['URL']: p for p in pages}.values())
         
-        return main_text[:15000], pages, None
+        return text[:15000], unique_pages, None
     except requests.RequestException as e:
         return None, [], f"Failed to fetch website content: {e}"
 
@@ -341,8 +303,21 @@ def fetch_with_retry(url, options, retries=3):
     error_msg = f"The server responded with an error (Status {response.status_code}) after multiple retries."
     return None, error_msg
 
-def convert_df_to_csv(df):
-   return df.to_csv(index=False).encode('utf-8')
+def convert_df_to_csv(df, analysis_data, analyzed_url):
+    """Prepares data for CSV export with analysis summary."""
+    output = io.StringIO()
+    if analysis_data:
+        summary_df = pd.DataFrame([
+            ["Website URL:", analyzed_url],
+            ["Target Audience and Pain Points:", analysis_data.get('target_audience_pain_points', 'Not found')],
+            ["Business Services and/or Products:", analysis_data.get('services_and_products', 'Not found')],
+            ["Target Location:", analysis_data.get('target_location', 'Not found')]
+        ])
+        summary_df.to_csv(output, header=False, index=False)
+        output.write("\n")
+    
+    df.to_csv(output, index=False)
+    return output.getvalue().encode('utf-8')
 
 def prepare_dataframe(data):
     """Flattens the nested topic data into a DataFrame."""
@@ -483,18 +458,20 @@ if generate_btn:
         with st.spinner("Generating topics... This may take up to a minute."):
             current_date = datetime.now().strftime('%B %d, %Y')
             
-            system_prompt = """You are a strategic content and marketing analyst. Your task is to generate two distinct sets of guest post topics based on the provided business details and the current date. The topic generation must be guided by the marketing funnel principles (ToFu, MoFu, BoFu) and a diverse anchor text strategy.
+            system_prompt = """You are a strategic content and marketing analyst. Your task is to generate two distinct sets of guest post topics based on the provided business details and the current date. The topic generation must be guided by the marketing funnel principles (ToFu, MoFu, BoFu).
 
-            First, analyze the provided text (which may be copywriting guidelines or a collection of details) to extract the business's industry, tone, target audiences, and products/services. When you identify a product, service, or event, summarize it into a short, clear name (e.g., "AI Security Solution" or "Annual Tech Conference") for the `productName` or `eventName` field.
+            First, analyze the provided text (which may be copywriting guidelines or a collection of details) to extract the business's industry, tone, target audiences, and products/services. When you identify a product, service, or event, summarize it into a short, clear name (e.g., "AI Security Solution" or "Annual Tech Conference") for the `productName` or `eventName` field. Do not use the entire descriptive text from the input.
 
-            Second, generate topics for two categories: "Product-Based" and "Timely & Event-Based." Ensure a diverse mix of anchor text types across all generated topics, guided by these ideal proportions: Branded (50%), Naked URL (20%), Page Title (20%), Generic/Random (2-5%), Exact Match (2-5%), Partial Match (2-5%).
+            Second, generate two sets of topics ensuring there are at least 3 topics per funnel stage for each audience and product/event:
+            1.  **Product-Based Topics:** Ideas directly related to the business's products/services.
+            2.  **Timely & Event-Based Topics:** Based on the 'Current Date' and the business's industry, identify relevant upcoming holidays, industry events, or seasonal business milestones and create topics for them.
 
             For each generated topic, you must provide five elements:
-            - 'topic': A short, concise title (MAXIMUM 60 characters) that frames the product/service as a solution.
-            - 'suggestedHeadline': A longer, more engaging headline for an article.
-            - 'rationale': A brief explanation of the topic's value.
-            - 'anchorText': A descriptive, concise, and relevant anchor text for an internal link. VARY the type of anchor text according to the proportions above.
-            - 'destinationPage': You MUST select the single most relevant URL from the `List of Available URLs` provided. Your selection must be an exact match from that list. Follow this strict priority order: 1. A dedicated product/service page. 2. A relevant blog post. 3. Any other contextually relevant page. If no good match is found, use the `Base Website URL` as the fallback. Do not invent or use placeholder URLs.
+            - 'topic': A short, concise title (MAXIMUM 60 characters) that frames the product/service as a solution to a problem relevant to the funnel stage.
+            - 'suggestedHeadline': A longer, more engaging headline suitable for a full article.
+            - 'rationale': A brief explanation of the topic's value and relevance.
+            - 'anchorText': A descriptive, concise, and relevant anchor text for an internal link, based on the topic. Avoid generic phrases like "click here."
+            - 'destinationPage': You MUST select the single most relevant URL from the `List of Available URLs` provided. Your selection must be an exact match from that list. Follow this strict priority order: 1. A dedicated product/service page. 2. A relevant blog post. 3. Any other contextually relevant page. If no good match is found, use the `Base Website URL` as the fallback. Do not invent or use placeholder URLs like example.com.
             
             The final output must be a single JSON object with two top-level keys: `productBasedTopics` and `timelyTopics`, adhering to the provided schema.
             """
@@ -575,7 +552,7 @@ if not st.session_state.dataframe.empty:
     if not st.session_state.available_pages_df.empty:
         st.subheader("Available Pages for Linking")
         st.dataframe(st.session_state.available_pages_df, use_container_width=True)
-        csv_pages = convert_df_to_csv(st.session_state.available_pages_df)
+        csv_pages = convert_df_to_csv(st.session_state.available_pages_df, None, None)
         st.download_button(
             label="Download Available Pages as CSV",
             data=csv_pages,
@@ -634,6 +611,3 @@ if not st.session_state.dataframe.empty:
                 file_name="analysis_summary.txt",
                 mime="text/plain"
             )
-
-st.markdown(f"<div style='text-align: right; font-size: 0.8em; color: grey;'>Last Updated: 10/08/2025</div>", unsafe_allow_html=True)
-
