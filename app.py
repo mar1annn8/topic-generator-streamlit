@@ -213,7 +213,8 @@ def scrape_website(url):
         base_netloc = urlparse(url).netloc
         for a_tag in soup.find_all('a', href=True):
             href = a_tag['href']
-            if href.startswith('#'): continue
+            if href.startswith('#') or href.startswith('mailto:') or href.startswith('tel:'):
+                continue
             
             full_url = urljoin(url, href)
             if urlparse(full_url).netloc == base_netloc:
@@ -221,8 +222,7 @@ def scrape_website(url):
                 page_title = a_tag.string.strip() if a_tag.string else "No Anchor Text"
                 pages.append({
                     'URL': clean_url,
-                    'Page Title': page_title,
-                    'Meta Description': '' # Meta is too slow to fetch for every link.
+                    'Page Title': page_title
                 })
         
         unique_pages = list({p['URL']: p for p in pages}.values())
@@ -285,7 +285,7 @@ def fetch_with_retry(url, options, retries=3):
     """Retry logic for the API call with a timeout. Returns (response, error_message)."""
     for i in range(retries):
         try:
-            response = requests.post(url, headers=options['headers'], data=options['body'], timeout=60)
+            response = requests.post(url, headers=options['headers'], data=options['body'], timeout=120)
             if response.status_code < 500:
                 return response, None
         except requests.exceptions.RequestException as e:
@@ -295,8 +295,21 @@ def fetch_with_retry(url, options, retries=3):
     error_msg = f"The server responded with an error (Status {response.status_code}) after multiple retries."
     return None, error_msg
 
-def convert_df_to_csv(df):
-   return df.to_csv(index=False).encode('utf-8')
+def convert_df_to_csv(df, analysis_data, analyzed_url):
+    """Prepares data for CSV export with analysis summary."""
+    output = io.StringIO()
+    if analysis_data:
+        summary_df = pd.DataFrame([
+            ["Website URL:", analyzed_url],
+            ["Target Audience and Pain Points:", analysis_data.get('target_audience_pain_points', 'Not found')],
+            ["Business Services and/or Products:", analysis_data.get('services_and_products', 'Not found')],
+            ["Target Location:", analysis_data.get('target_location', 'Not found')]
+        ])
+        summary_df.to_csv(output, header=False, index=False)
+        output.write("\n")
+    
+    df.to_csv(output, index=False)
+    return output.getvalue().encode('utf-8')
 
 def prepare_dataframe(data):
     """Flattens the nested topic data into a DataFrame."""
@@ -345,7 +358,7 @@ def prepare_analysis_text(analysis_data, analyzed_url):
 # --- Sidebar Logic ---
 if st.session_state.get('analyze_btn_clicked', False):
     st.session_state.analyze_btn_clicked = False # Reset flag
-    api_key = st.session_state.get("api_key_input")
+    api_key = st.session_state.get("api_key")
     website_url = st.session_state.get("website_url_input")
     if not api_key:
         st.error("Please enter your Google API Key first.")
@@ -377,8 +390,7 @@ with st.sidebar:
     st.markdown("<h2 style='font-weight: bold;'>Settings</h2>", unsafe_allow_html=True)
 
     with st.expander("1. Google API Key", expanded=True):
-        st.text_input("Enter Google API Key", type="password", help="Your key is saved for the current session.", key="api_key_input")
-        if st.session_state.api_key_input: st.session_state.api_key = st.session_state.api_key_input
+        st.text_input("Enter Google API Key", type="password", help="Your key is saved for the current session.", key="api_key_input", on_change=lambda: st.session_state.update(api_key=st.session_state.api_key_input))
         
         if st.button("Validate"):
             if st.session_state.api_key and validate_api_key(st.session_state.api_key):
@@ -388,13 +400,14 @@ with st.sidebar:
 
     with st.expander("2. Business Details", expanded=True):
         st.subheader("Website Analysis")
-        st.info("Enter a website URL to analyze. The Analyze button will auto-populate the business details fields below. You can then edit them manually afterwards.")
+        st.info("Enter a website URL to auto-populate the fields below.")
         st.text_input("Enter Website URL", key="website_url_input")
         if st.button("Analyze Website"):
             st.session_state.analyze_btn_clicked = True
             st.rerun()
         
         st.divider()
+        st.info("Or enter/edit the details manually.")
         st.text_input("Business Industry/Niche", key="industry")
         st.text_input("Branding Tone/Voice", key="tone")
         st.text_area("Target Audience", key="audience_input")
