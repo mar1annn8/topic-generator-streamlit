@@ -209,16 +209,25 @@ def scrape_website(url):
             
         text = soup.get_text(separator='\n', strip=True)
 
-        links = set()
+        pages = []
         base_netloc = urlparse(url).netloc
         for a_tag in soup.find_all('a', href=True):
             href = a_tag['href']
+            if href.startswith('#'): continue
+            
             full_url = urljoin(url, href)
             if urlparse(full_url).netloc == base_netloc:
                 clean_url = urljoin(full_url, urlparse(full_url).path)
-                links.add(clean_url)
+                page_title = a_tag.string.strip() if a_tag.string else "No Anchor Text"
+                pages.append({
+                    'URL': clean_url,
+                    'Page Title': page_title,
+                    'Meta Description': '' # Meta is too slow to fetch for every link.
+                })
         
-        return text[:15000], list(links), None
+        unique_pages = list({p['URL']: p for p in pages}.values())
+        
+        return text[:15000], unique_pages, None
     except requests.RequestException as e:
         return None, [], f"Failed to fetch website content: {e}"
 
@@ -286,21 +295,8 @@ def fetch_with_retry(url, options, retries=3):
     error_msg = f"The server responded with an error (Status {response.status_code}) after multiple retries."
     return None, error_msg
 
-def convert_df_to_csv(df, analysis_data, analyzed_url):
-    """Prepares data for CSV export with analysis summary."""
-    output = io.StringIO()
-    if analysis_data:
-        summary_df = pd.DataFrame([
-            ["Website URL:", analyzed_url],
-            ["Target Audience and Pain Points:", analysis_data.get('target_audience_pain_points', 'Not found')],
-            ["Business Services and/or Products:", analysis_data.get('services_and_products', 'Not found')],
-            ["Target Location:", analysis_data.get('target_location', 'Not found')]
-        ])
-        summary_df.to_csv(output, header=False, index=False)
-        output.write("\n")
-    
-    df.to_csv(output, index=False)
-    return output.getvalue().encode('utf-8')
+def convert_df_to_csv(df):
+   return df.to_csv(index=False).encode('utf-8')
 
 def prepare_dataframe(data):
     """Flattens the nested topic data into a DataFrame."""
@@ -357,7 +353,7 @@ if st.session_state.get('analyze_btn_clicked', False):
         st.error("Please enter a website URL.")
     else:
         with st.spinner("Scraping and analyzing website..."):
-            scraped_text, scraped_links, error = scrape_website(website_url)
+            scraped_text, scraped_pages, error = scrape_website(website_url)
             if error:
                 st.error(error)
             else:
@@ -367,7 +363,8 @@ if st.session_state.get('analyze_btn_clicked', False):
                 else:
                     st.session_state.analysis_results = analysis
                     st.session_state.analyzed_url = website_url
-                    st.session_state.scraped_links = scraped_links
+                    st.session_state.scraped_links = scraped_pages
+                    st.session_state.available_pages_df = pd.DataFrame(scraped_pages)
                     st.session_state.industry = analysis.get('industry', '')
                     st.session_state.tone = analysis.get('tone', '')
                     st.session_state.audience_input = analysis.get('target_audience_pain_points', '')
@@ -391,14 +388,13 @@ with st.sidebar:
 
     with st.expander("2. Business Details", expanded=True):
         st.subheader("Website Analysis")
-        st.info("Enter a URL to auto-populate the fields below. You can then edit them manually.")
+        st.info("Enter a website URL to analyze. The Analyze button will auto-populate the business details fields below. You can then edit them manually afterwards.")
         st.text_input("Enter Website URL", key="website_url_input")
         if st.button("Analyze Website"):
             st.session_state.analyze_btn_clicked = True
             st.rerun()
         
         st.divider()
-        st.info("Or enter/edit the details manually below.")
         st.text_input("Business Industry/Niche", key="industry")
         st.text_input("Branding Tone/Voice", key="tone")
         st.text_area("Target Audience", key="audience_input")
@@ -465,7 +461,7 @@ if generate_btn:
                  if st.session_state.scraped_links:
                      user_query += "List of Available URLs to choose from for the 'destinationPage' (with their anchor text for context):\n"
                      for page in st.session_state.scraped_links:
-                         user_query += f"- {page['url']} (Context: {page['title']})\n"
+                         user_query += f"- {page['URL']} (Context: {page['Page Title']})\n"
                      user_query += "\n"
 
 
