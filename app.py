@@ -230,8 +230,7 @@ def scrape_website(url):
                 page_title = a_tag.string.strip() if a_tag.string else "No Anchor Text"
                 pages.append({
                     'URL': clean_url,
-                    'Page Title': page_title,
-                    'Meta Description': '' # Meta is too slow to fetch for every link.
+                    'Page Title': page_title
                 })
         
         unique_pages = list({p['URL']: p for p in pages}.values())
@@ -304,8 +303,21 @@ def fetch_with_retry(url, options, retries=3):
     error_msg = f"The server responded with an error (Status {response.status_code}) after multiple retries."
     return None, error_msg
 
-def convert_df_to_csv(df):
-   return df.to_csv(index=False).encode('utf-8')
+def convert_df_to_csv(df, analysis_data, analyzed_url):
+    """Prepares data for CSV export with analysis summary."""
+    output = io.StringIO()
+    if analysis_data:
+        summary_df = pd.DataFrame([
+            ["Website URL:", analyzed_url],
+            ["Target Audience and Pain Points:", analysis_data.get('target_audience_pain_points', 'Not found')],
+            ["Business Services and/or Products:", analysis_data.get('services_and_products', 'Not found')],
+            ["Target Location:", analysis_data.get('target_location', 'Not found')]
+        ])
+        summary_df.to_csv(output, header=False, index=False)
+        output.write("\n")
+    
+    df.to_csv(output, index=False)
+    return output.getvalue().encode('utf-8')
 
 def prepare_dataframe(data):
     """Flattens the nested topic data into a DataFrame."""
@@ -537,11 +549,10 @@ if not st.session_state.dataframe.empty:
             st.markdown(f"**Business Services and/or Products:** {analysis.get('services_and_products', 'Not found')}")
             st.markdown(f"**Target Location:** {analysis.get('target_location', 'Not found')}")
     
-    if st.session_state.scraped_links:
+    if not st.session_state.available_pages_df.empty:
         st.subheader("Available Pages for Linking")
-        available_pages_df = pd.DataFrame(st.session_state.scraped_links)
-        st.dataframe(available_pages_df, use_container_width=True)
-        csv_pages = convert_df_to_csv(available_pages_df, None, None)
+        st.dataframe(st.session_state.available_pages_df, use_container_width=True)
+        csv_pages = convert_df_to_csv(st.session_state.available_pages_df, None, None)
         st.download_button(
             label="Download Available Pages as CSV",
             data=csv_pages,
