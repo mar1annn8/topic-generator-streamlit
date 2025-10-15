@@ -14,7 +14,7 @@ import nltk
 # --- Download NLTK data ---
 try:
     nltk.data.find('corpora/stopwords')
-except nltk.downloader.DownloadError:
+except LookupError:
     nltk.download('stopwords')
 from nltk.corpus import stopwords
 
@@ -649,7 +649,7 @@ if not st.session_state.dataframe.empty:
     st.divider()
     
     # Use a single download button for the combined CSV
-    combined_csv = convert_df_to_csv(filtered_df, st.session_state.analysis_results, st.session_state.analyzed_url)
+    combined_csv = convert_df_to_csv(filtered_df, st.session_state.available_pages_df, st.session_state.analysis_results, st.session_state.analyzed_url)
     st.download_button(
         label="Download All Results as CSV",
         data=combined_csv,
