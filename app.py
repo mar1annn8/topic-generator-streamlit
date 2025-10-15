@@ -648,10 +648,11 @@ if not st.session_state.dataframe.empty:
 
     st.divider()
     
-    csv_data_topics = convert_df_to_csv(filtered_df)
+    # Use a single download button for the combined CSV
+    combined_csv = convert_df_to_csv(filtered_df, st.session_state.analysis_results, st.session_state.analyzed_url)
     st.download_button(
-        label="Download Topics as CSV",
-        data=csv_data_topics,
+        label="Download All Results as CSV",
+        data=combined_csv,
         file_name=f"topic_generator_output_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
         mime='text/csv',
     )
