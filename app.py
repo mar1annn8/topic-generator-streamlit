@@ -398,7 +398,7 @@ with st.sidebar:
     st.markdown("<h2 style='font-weight: bold;'>Settings</h2>", unsafe_allow_html=True)
 
     with st.expander("1. Google API Key", expanded=True):
-        st.text_input("Enter Google API Key", type="password", help="Your key is saved for the current session.", key="api_key_input", on_change=lambda: st.session_state.update(api_key=st.session_state.api_key_input))
+        st.text_input("Enter Google API Key", type="password", help="Generate your key; see instructions for steps; validated keys remain for the session.", key="api_key_input", on_change=lambda: st.session_state.update(api_key=st.session_state.api_key_input))
         
         if st.button("Validate"):
             if st.session_state.api_key and validate_api_key(st.session_state.api_key):
