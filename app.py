@@ -331,7 +331,7 @@ def analyze_scraped_text(api_key, text):
         "required": ["target_audience_pain_points", "services_and_products", "target_location", "industry", "tone", "guidelines"]
     }
     
-    api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key={api_key}"
+    api_url = f"https.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key={api_key}"
     payload = {
         "contents": [{"parts": [{"text": text}]}],
         "systemInstruction": {"parts": [{"text": system_prompt}]},
@@ -576,76 +576,7 @@ if generate_btn:
             timely_topics_properties = {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"eventName": {"type": "STRING", "description": "A short, summarized name for the event or holiday (e.g., 'Q4 Sales Kickoff')."}, "funnels": {"type": "ARRAY", "items": funnel_properties}}, "required": ["eventName", "funnels"]}}
             schema = {"type": "OBJECT", "properties": {"productBasedTopics": product_based_topics_properties, "timelyTopics": timely_topics_properties}, "required": ["productBasedTopics", "timelyTopics"]}
 
-            api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key={st.session_state.api_key}"
-            payload = {"contents": [{"parts": [{"text": user_query}]}], "systemInstruction": {"parts": [{"text": system_prompt}]}, "generationConfig": {"responseMimeType": "application/json", "responseSchema": schema}}
-            options = {'headers': {'Content-Type': 'application/json'}, 'body': json.dumps(payload)}
-            
-            response, error_msg = fetch_with_retry(api_url, options)
-            
-            if error_msg:
-                st.error(error_msg)
-            elif response and response.status_code == 200:
-                try:
-                    result = response.json()
-                    text_content = result.get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', '')
-                    if text_content:
-                        data = json.loads(text_content)
-                        st.session_state.generated_data = data
-                        st.session_state.dataframe = prepare_dataframe(data)
-                    else:
-                        st.error("No content received from API.")
-                except (json.JSONDecodeError, IndexError, KeyError) as e:
-                    st.error(f"Failed to parse API response: {e}")
-            elif response:
-                 try:
-                     error_details = response.json()
-                     st.error(f"API request failed with status code: {response.status_code}.")
-                     st.json(error_details)
-                 except json.JSONDecodeError:
-                     st.error(f"API request failed with status code: {response.status_code}.")
-
-# --- Display Results ---
-if not st.session_state.dataframe.empty:
-    st.header("Generated Topics", divider="rainbow")
-    
-    if st.session_state.get('analysis_results'):
-        st.subheader("Website Analysis Summary")
-        with st.container(border=True):
-            analysis = st.session_state.analysis_results
-            st.markdown(f"**Website URL:** {st.session_state.get('analyzed_url', 'N/A')}")
-            st.markdown(f"**Target Audience and Pain Points:** {analysis.get('target_audience_pain_points', 'Not found')}")
-            st.markdown(f"**Business Services and/or Products:** {analysis.get('services_and_products', 'Not found')}")
-            st.markdown(f"**Target Location:** {analysis.get('target_location', 'Not found')}")
-    
-    if not st.session_state.available_pages_df.empty:
-        st.subheader("Available Pages for Linking")
-        st.dataframe(st.session_state.available_pages_df, use_container_width=True)
-
-    st.subheader("Filter and Search Topics")
-    
-    df_to_display = st.session_state.dataframe.copy()
-
-    # Search bar
-    search_query = st.text_input("Search topics...")
-    if search_query:
-        df_to_display = df_to_display[df_to_display.apply(lambda row: row.astype(str).str.contains(search_query, case=False).any(), axis=1)]
-
-    # Filter dropdowns
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        categories = df_to_display['Category'].unique()
-        selected_categories = st.multiselect("Filter by Category", categories, default=categories)
-    with col2:
-        funnels = df_to_display['Funnel Stage'].unique()
-        selected_funnels = st.multiselect("Filter by Funnel Stage", funnels, default=funnels)
-    with col3:
-        audiences = df_to_display['Target Audience'].unique()
-        selected_audiences = st.multiselect("Filter by Target Audience", audiences, default=audiences)
-    
-    # Apply filters
-    filtered_df = df_to_display[
-        df_to_display['Category'].isin(selected_categories) &
-        df_to_display['Fung-g/gemini/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key={st.session_state.api_key}"
+            api_url = f"https{st.session_state.api_key}"
             payload = {"contents": [{"parts": [{"text": user_query}]}], "systemInstruction": {"parts": [{"text": system_prompt}]}, "generationConfig": {"responseMimeType": "application/json", "responseSchema": schema}}
             options = {'headers': {'Content-Type': 'application/json'}, 'body': json.dumps(payload)}
             
