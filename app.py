@@ -455,7 +455,8 @@ def convert_df_to_csv(topics_df, available_pages_df, analysis_data, analyzed_url
         output.write("Business Services and/or Products\n")
         products_df = pd.DataFrame(analysis_data.get('business_services_products', []))
         # Rename columns for clarity in CSV
-        products_df.columns = ["Service/Product", "Associated Industry", "Associated Audience", "Associated Pain Point"]
+        if not products_df.empty:
+            products_df.columns = ["Service/Product", "Associated Industry", "Associated Audience", "Associated Pain Point"]
         products_df.to_csv(output, index=False)
         output.write("\n")
 
