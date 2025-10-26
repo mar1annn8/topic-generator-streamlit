@@ -223,10 +223,18 @@ def summarize_text(text, sentence_count=1):
     """Simple extractive summary."""
     text = re.sub(r'\s+', ' ', text) # Normalize whitespace
     sentences = re.split(r'(?<=[.!?]) +', text)
-    sentences = [s for s in sentences if len(s.split()) > 5] # Filter short sentences
-    if not sentences:
-        return "No summary available."
-    return " ".join(sentences[:sentence_count])
+    
+    # Find the first sentence that is long enough
+    first_meaningful_sentence = "No summary available."
+    for s in sentences:
+        if len(s.split()) > 10: # At least 10 words
+            first_meaningful_sentence = s.strip()
+            break
+    
+    if first_meaningful_sentence == "No summary available." and len(text) > 20:
+         return text[:150] + "..." # Fallback to a snippet
+         
+    return first_meaningful_sentence
 
 def scrape_page_details(url, headers):
     """Scrapes details from a single page."""
@@ -239,11 +247,28 @@ def scrape_page_details(url, headers):
         meta_tag = soup.find('meta', attrs={'name': 'description'})
         meta = meta_tag['content'].strip() if meta_tag and meta_tag.get('content') else "No Meta Description"
         
-        for script in soup(["script", "style"]):
+        for script in soup(["script", "style", "nav", "header", "footer"]): # Remove junk elements
             script.extract()
-        content = soup.get_text(separator=' ', strip=True)
         
-        summary = summarize_text(content)
+        # Try to find main content, fallback to body
+        main_content = soup.find("main") or soup.find("article") or soup.find("body")
+        content = "No summary available."
+        if main_content:
+            # Get text from paragraphs
+            paragraphs = main_content.find_all("p")
+            if paragraphs:
+                # Find the first paragraph that is long enough to be a summary
+                for p in paragraphs:
+                    p_text = p.get_text(separator=' ', strip=True)
+                    if len(p_text.split()) > 10: # At least 10 words
+                        content = p_text
+                        break
+            
+            # If no good paragraph, fallback to main content text
+            if content == "No summary available.":
+                content = main_content.get_text(separator=' ', strip=True)
+
+        summary = summarize_text(content) # Use the summarize function on the cleaner text
 
         return {'URL': url, 'Page Title': title, 'Meta Description': meta, 'Content Summary': summary}
     except requests.RequestException:
