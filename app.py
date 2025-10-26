@@ -83,7 +83,7 @@ st.markdown("""
 This AI tool generates topic ideas based on the marketing funnel concepts from 
 [SEMRush](https://www.semrush.com/blog/content-marketing-funnel/), 
 [Search Engine Land](https://searchengineland.com/how-to-drive-the-funnel-through-content-marketing-and-link-building-374343), and
-Google's guidelines on creating [helpful, reliable, people-first content](https://developers.google.com/search/docs/fundamentals/creating-helpful-content) and [link best practices](https://developers.google.com/search/docs/crawling-indexing/links-crawlable).
+Google's guidelines on creating [helpful, reliable, people-first content](https://developers.google.com/search/docs/fundamentals/creating-helpful-content).
 This approach ensures topics are valuable to the target audience by emphasizing expertise, authoritativeness, and trustworthiness (E-E-A-T).
 """)
 
@@ -122,30 +122,17 @@ with st.expander("Instructions"):
 
         **4. View and Understand the Output**
 
-        The results will appear in the main window, just below the “Generate Topics” button. The output includes three parts:
+        The results will appear in the main window, just below the “Generate Topics” button. The output includes two parts:
 
         **Table 1: Business Analysis Summary**
-
-        This section gives a quick overview of the business:
-
-        - Website URL
-        - Target Audience and Pain Points
+        This section gives a quick overview of the business, including Website URL, Target Location, Identified Industry, Target Audience and Pain Points. It also includes a detailed breakdown of:
         - Business Services and/or Products
-        - Target Location
-        - Identified Industry
-        
-        **Table 2: Available Pages for Linking**
+        - Associated Industry
+        - Associated Audience
+        - Associated Pain Point
 
-        A table listing all available, crawlable pages from the analyzed website. This table includes:
-        - URL
-        - Page Title
-        - Meta Description
-        - Content Summary
-        - Suggested Focus Keyword
-
-        **Table 3: Topics**
-
-        This section contains the suggested content ideas, organized in a table with the following columns: Category, Group Name, Target Audience, Publication Niche, Funnel Stage, Topic, Suggested Headline, Rationale, Anchor text, Destination Page, Focus Keyword
+        **Table 2: Topics**
+        This section contains the suggested content ideas, organized in a table with the following columns: Category, Group Name, Target Audience, Publication Niche, Funnel Stage, Topic, Suggested Headline, Rationale
 
         Each row in the table represents a content idea. The AI groups topics by product, service, or event, and aligns them with the right funnel stage and audience.
 
@@ -206,11 +193,9 @@ if 'product_input' not in st.session_state: st.session_state.product_input = ""
 if 'guidelines' not in st.session_state: st.session_state.guidelines = ""
 if 'analysis_results' not in st.session_state: st.session_state.analysis_results = None
 if 'analyzed_url' not in st.session_state: st.session_state.analyzed_url = ""
-if 'scraped_links' not in st.session_state: st.session_state.scraped_links = []
 if 'generated_data' not in st.session_state: st.session_state.generated_data = None
 if 'analyze_btn_clicked' not in st.session_state: st.session_state.analyze_btn_clicked = False
 if 'dataframe' not in st.session_state: st.session_state.dataframe = pd.DataFrame()
-if 'available_pages_df' not in st.session_state: st.session_state.available_pages_df = pd.DataFrame()
 
 
 # --- Functions ---
@@ -225,50 +210,8 @@ def validate_api_key(api_key):
     except requests.RequestException:
         return False
 
-def summarize_text(text, sentence_count=1):
-    """Simple extractive summary."""
-    text = re.sub(r'\s+', ' ', text) # Normalize whitespace
-    sentences = re.split(r'(?<=[.!?]) +', text)
-    sentences = [s for s in sentences if len(s.split()) > 5] # Filter short sentences
-    if not sentences:
-        return "No summary available."
-    return " ".join(sentences[:sentence_count])
-
-def suggest_focus_keyword(text, top_n=1):
-    """Suggests a focus keyword based on word frequency."""
-    words = re.findall(r"\b[a-zA-Z]{3,}\b", text.lower())
-    filtered = [w for w in words if w not in STOPWORDS]
-    freq = Counter(filtered)
-    if not freq:
-        return "N/A"
-    return ", ".join([w for w, _ in freq.most_common(top_n)])
-
-
-def scrape_page_details(url, headers):
-    """Scrapes details from a single page."""
-    try:
-        response = requests.get(url, headers=headers, timeout=5)
-        response.raise_for_status()
-        soup = BeautifulSoup(response.content, 'html.parser')
-
-        title = soup.title.string.strip() if soup.title else "No Title"
-        meta_tag = soup.find('meta', attrs={'name': 'description'})
-        meta = meta_tag['content'].strip() if meta_tag and meta_tag.get('content') else "No Meta Description"
-        
-        for script in soup(["script", "style"]):
-            script.extract()
-        content = soup.get_text(separator=' ', strip=True)
-        
-        summary = summarize_text(content)
-        keyword = suggest_focus_keyword(content)
-
-        return {'URL': url, 'Page Title': title, 'Meta Description': meta, 'Content Summary': summary, 'Suggested Focus Keyword': keyword}
-    except requests.RequestException:
-        return None
-
-
 def scrape_website(url):
-    """Scrapes the main page and extracts internal links and their details."""
+    """Scrapes the text content from a given URL."""
     try:
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
         response = requests.get(url, headers=headers, timeout=10)
@@ -278,36 +221,11 @@ def scrape_website(url):
         for script in soup(["script", "style"]):
             script.extract()
             
-        main_text = soup.get_text(separator='\n', strip=True)
-
-        links = set()
-        base_netloc = urlparse(url).netloc
-        for a_tag in soup.find_all('a', href=True):
-            href = a_tag['href']
-            if href.startswith('#') or href.startswith('mailto:') or href.startswith('tel:'):
-                continue
-            
-            full_url = urljoin(url, href)
-            if urlparse(full_url).netloc == base_netloc:
-                clean_url = urljoin(full_url, urlparse(full_url).path)
-                links.add(clean_url)
+        text = soup.get_text(separator='\n', strip=True)
         
-        pages = []
-        homepage_details = scrape_page_details(url, headers)
-        if homepage_details:
-            pages.append(homepage_details)
-        
-        for link in list(links)[:19]: # Limit total crawl to 20 pages
-             if link != url:
-                details = scrape_page_details(link, headers)
-                if details:
-                    pages.append(details)
-        
-        unique_pages = list({p['URL']: p for p in pages}.values())
-        
-        return main_text[:15000], unique_pages, None
+        return text[:15000], None
     except requests.RequestException as e:
-        return None, [], f"Failed to fetch website content: {e}"
+        return None, f"Failed to fetch website content: {e}"
 
 def analyze_scraped_text(api_key, text):
     """Uses AI to analyze scraped text and extract business details."""
@@ -358,29 +276,46 @@ Industry Database:
 Your Tasks:
 1.  Analyze the website text to determine its primary industry (e.g., "AI-based logistics").
 2.  Compare this identified industry against the 'Industry Database' provided above.
-3.  Format the 'industry' output:
+3.  Format the 'identified_industry' output:
     - If a clear match is found, return the category name (e.g., "Health & Wellness").
     - If no clear match is found, return "Not found (Identified as: [Industry you found])".
 4.  Extract all other required information.
+5.  For 'business_services_products', identify each distinct service or product. For each one, find its most relevant industry, target audience, and the specific pain point it solves.
 
-- **Target Audience and Pain Points:** The specific groups of people the business wants to reach and the problems they face.
-- **Business Services and/or Products:** The specific offerings that solve the audience's pain points.
-- **Target Location:** The primary geographical market (e.g., USA, California, Global).
-- **Industry/Niche:** [Your formatted output from step 3]
-- **Branding Tone/Voice:** The style and personality of the business's communication.
-- **Branding Guidelines Summary:** Summarize any core messaging or branding principles evident from the text."""
+- **target_audience_pain_points:** The *overall* target audience and their main problems.
+- **business_services_products:** A list of objects, where each object contains:
+    - 'service_or_product' (string)
+    - 'associated_industry' (string)
+    - 'associated_audience' (string)
+    - 'associated_pain_point' (string)
+- **target_location:** The primary geographical market (e.g., USA, California, Global).
+- **identified_industry:** [Your formatted output from step 3]
+- **branding_tone_voice:** The style and personality of the business's communication.
+- **branding_guidelines_summary:** Summarize any core messaging or branding principles evident from the text."""
     
     schema = {
         "type": "OBJECT",
         "properties": {
             "target_audience_pain_points": {"type": "STRING"},
-            "services_and_products": {"type": "STRING"},
+            "business_services_products": {
+                "type": "ARRAY",
+                "items": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "service_or_product": {"type": "STRING"},
+                        "associated_industry": {"type": "STRING"},
+                        "associated_audience": {"type": "STRING"},
+                        "associated_pain_point": {"type": "STRING"}
+                    },
+                    "required": ["service_or_product", "associated_industry", "associated_audience", "associated_pain_point"]
+                }
+            },
             "target_location": {"type": "STRING"},
-            "industry": {"type": "STRING", "description": "The industry, formatted as specified in the prompt."},
-            "tone": {"type": "STRING"},
-            "guidelines": {"type": "STRING"}
+            "identified_industry": {"type": "STRING", "description": "The industry, formatted as specified in the prompt."},
+            "branding_tone_voice": {"type": "STRING"},
+            "branding_guidelines_summary": {"type": "STRING"}
         },
-        "required": ["target_audience_pain_points", "services_and_products", "target_location", "industry", "tone", "guidelines"]
+        "required": ["target_audience_pain_points", "business_services_products", "target_location", "identified_industry", "branding_tone_voice", "branding_guidelines_summary"]
     }
     
     api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key={api_key}"
@@ -433,13 +368,18 @@ def convert_df_to_csv(topics_df, available_pages_df, analysis_data, analyzed_url
         output.write("Table 1: Business Analysis Summary\n")
         summary_df = pd.DataFrame([
             ["Website URL:", analyzed_url],
-            ["Target Audience and Pain Points:", analysis_data.get('target_audience_pain_points', 'Not found')],
-            ["Business Services and/or Products:", analysis_data.get('services_and_products', 'Not found')],
             ["Target Location:", analysis_data.get('target_location', 'Not found')],
-            ["Identified Industry:", analysis_data.get('industry', 'Not found')]
+            ["Identified Industry:", analysis_data.get('identified_industry', 'Not found')],
+            ["Target Audience and Pain Points:", analysis_data.get('target_audience_pain_points', 'Not found')]
         ])
         summary_df.to_csv(output, header=False, index=False)
         output.write("\n")
+        
+        output.write("Business Services and/or Products\n")
+        products_df = pd.DataFrame(analysis_data.get('business_services_products', []))
+        products_df.to_csv(output, index=False)
+        output.write("\n")
+
 
     # Table 2: Available Pages for Linking
     if not available_pages_df.empty:
@@ -509,10 +449,15 @@ if st.session_state.get('analyze_btn_clicked', False):
                     st.session_state.scraped_links = scraped_pages
                     st.session_state.available_pages_df = pd.DataFrame(scraped_pages)
                     st.session_state.industry = analysis.get('industry', '')
-                    st.session_state.tone = analysis.get('tone', '')
+                    st.session_state.tone = analysis.get('branding_tone_voice', '')
                     st.session_state.audience_input = analysis.get('target_audience_pain_points', '')
-                    st.session_state.product_input = analysis.get('services_and_products', '')
-                    st.session_state.guidelines = analysis.get('guidelines', '')
+                    
+                    # Convert services list to a string for the text area
+                    products_list = analysis.get('business_services_products', [])
+                    products_str = "\n".join([f"- {p.get('service_or_product')}" for p in products_list])
+                    st.session_state.product_input = products_str
+                    
+                    st.session_state.guidelines = analysis.get('branding_guidelines_summary', '')
                     st.success("Website analyzed!")
                     st.rerun()
 
@@ -588,7 +533,7 @@ if generate_btn:
 
             For each generated topic, you must provide six elements:
             - 'topic': A short, concise title (MAXIMUM 60 characters) that frames the product/service as a solution.
-            - 'suggestedHeadline': A longer, more engaging headline suitable for a full article.
+            - 'suggestedHeadline': A longer, more engaging headline for an article.
             - 'rationale': A brief explanation of the topic's value.
             - 'anchorText': A descriptive, concise, and relevant anchor text for an internal link. VARY the type of anchor text according to the proportions above.
             - 'destinationPage': You MUST select the single most relevant URL from the `List of Available URLs` provided. Your selection must be an exact match from that list. Follow this strict priority order: 1. A dedicated product/service page. 2. A relevant blog post. 3. Any other contextually relevant page. If no good match is found, use the `Base Website URL` as the fallback. Do not invent or use placeholder URLs.
@@ -629,7 +574,7 @@ if generate_btn:
             timely_topics_properties = {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"eventName": {"type": "STRING", "description": "A short, summarized name for the event or holiday (e.g., 'Q4 Sales Kickoff')."}, "funnels": {"type": "ARRAY", "items": funnel_properties}}, "required": ["eventName", "funnels"]}}
             schema = {"type": "OBJECT", "properties": {"productBasedTopics": product_based_topics_properties, "timelyTopics": timely_topics_properties}, "required": ["productBasedTopics", "timelyTopics"]}
 
-            api_url = f"https{st.session_state.api_key}"
+            api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key={st.session_state.api_key}"
             payload = {"contents": [{"parts": [{"text": user_query}]}], "systemInstruction": {"parts": [{"text": system_prompt}]}, "generationConfig": {"responseMimeType": "application/json", "responseSchema": schema}}
             options = {'headers': {'Content-Type': 'application/json'}, 'body': json.dumps(payload)}
             
@@ -662,20 +607,41 @@ if not st.session_state.dataframe.empty:
     st.header("Generated Topics", divider="rainbow")
     
     if st.session_state.get('analysis_results'):
-        st.subheader("Website Analysis Summary")
-        with st.container(border=True):
-            analysis = st.session_state.analysis_results
-            st.markdown(f"**Website URL:** {st.session_state.get('analyzed_url', 'N/A')}")
-            st.markdown(f"**Target Audience and Pain Points:** {analysis.get('target_audience_pain_points', 'Not found')}")
-            st.markdown(f"**Business Services and/or Products:** {analysis.get('services_and_products', 'Not found')}")
-            st.markdown(f"**Target Location:** {analysis.get('target_location', 'Not found')}")
-            st.markdown(f"**Identified Industry:** {analysis.get('industry', 'Not found')}")
+        st.subheader("Table 1: Website Analysis Summary")
+        analysis = st.session_state.analysis_results
+        
+        summary_data = {
+            "Metric": [
+                "Website URL", 
+                "Target Location", 
+                "Identified Industry", 
+                "Target Audience and Pain Points"
+            ],
+            "Details": [
+                st.session_state.get('analyzed_url', 'N/A'),
+                analysis.get('target_location', 'Not found'),
+                analysis.get('identified_industry', 'Not found'),
+                analysis.get('target_audience_pain_points', 'Not found')
+            ]
+        }
+        summary_df = pd.DataFrame(summary_data)
+        st.dataframe(summary_df, hide_index=True, use_container_width=True)
+
+        st.markdown("**Business Services and/or Products:**")
+        products_list = analysis.get('business_services_products', [])
+        if products_list:
+            products_df = pd.DataFrame(products_list)
+            products_df.columns = ["Service/Product", "Associated Industry", "Associated Audience", "Associated Pain Point"]
+            st.dataframe(products_df, hide_index=True, use_container_width=True)
+        else:
+            st.text("No specific services or products were identified.")
+
     
     if not st.session_state.available_pages_df.empty:
-        st.subheader("Available Pages for Linking")
+        st.subheader("Table 2: Available Pages for Linking")
         st.dataframe(st.session_state.available_pages_df, use_container_width=True)
 
-    st.subheader("Filter and Search Topics")
+    st.subheader("Table 3: Topics")
     
     df_to_display = st.session_state.dataframe.copy()
 
