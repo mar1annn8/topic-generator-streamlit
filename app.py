@@ -331,7 +331,7 @@ def analyze_scraped_text(api_key, text):
         "required": ["target_audience_pain_points", "services_and_products", "target_location", "industry", "tone", "guidelines"]
     }
     
-    api_url = f"https.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key={api_key}"
+    api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key={api_key}"
     payload = {
         "contents": [{"parts": [{"text": text}]}],
         "systemInstruction": {"parts": [{"text": system_prompt}]},
