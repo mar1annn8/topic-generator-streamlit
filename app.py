@@ -122,9 +122,9 @@ with st.expander("Instructions"):
 
         **4. View and Understand the Output**
 
-        The results will appear in the main window, just below the “Generate Topics” button. The output includes two parts:
+        The results will appear in the main window, just below the “Generate Topics” button. The output includes three parts:
 
-        **Business Analysis Summary**
+        **Table 1: Business Analysis Summary**
 
         This section gives a quick overview of the business:
 
@@ -132,17 +132,18 @@ with st.expander("Instructions"):
         - Target Audience and Pain Points
         - Business Services and/or Products
         - Target Location
+        - Identified Industry
         
-        **Available Pages Table**
+        **Table 2: Available Pages for Linking**
 
         A table listing all available, crawlable pages from the analyzed website. This table includes:
-        - Page Title
         - URL
+        - Page Title
         - Meta Description
         - Content Summary
         - Suggested Focus Keyword
 
-        **Topics Table**
+        **Table 3: Topics**
 
         This section contains the suggested content ideas, organized in a table with the following columns: Category, Group Name, Target Audience, Publication Niche, Funnel Stage, Topic, Suggested Headline, Rationale, Anchor text, Destination Page, Focus Keyword
 
@@ -310,13 +311,64 @@ def scrape_website(url):
 
 def analyze_scraped_text(api_key, text):
     """Uses AI to analyze scraped text and extract business details."""
-    system_prompt = """You are an expert marketing analyst. Analyze the provided website text and extract the following information. Be concise and summarize the findings. If information isn't present, state 'Not found'.
-    - **Target Audience and Pain Points:** The specific groups of people the business wants to reach and the problems they face.
-    - **Business Services and/or Products:** The specific offerings that solve the audience's pain points.
-    - **Target Location:** The primary geographical market (e.g., USA, California, Global).
-    - **Industry/Niche:** The specific market the business operates in.
-    - **Branding Tone/Voice:** The style and personality of the business's communication.
-    - **Branding Guidelines Summary:** Summarize any core messaging or branding principles evident from the text."""
+    industry_database = """
+- Adult Products: Products related to adult entertainment and intimacy (e.g., Adult toys, lingerie, sexual wellness products)
+- Agriculture & Environment: Farming, natural resource management, sustainability (e.g., Crop production, livestock, forestry, conservation)
+- Performing Arts & Cultural Experiences: Creative expression, entertainment (e.g., Theater, dance, concerts, museums)
+- Visual Arts & Entertainment: Creative expression, entertainment (e.g., Visual arts, film, television, gaming)
+- Autos & Vehicles: Design, manufacturing, and sales of vehicles (e.g., Cars, trucks, motorcycles, RVs)
+- Beauty & Fitness: Personal care, appearance, physical well-being (e.g., Cosmetics, skincare, gyms, personal training)
+- Business & Industrial: Commercial activities, manufacturing, professional services (e.g., Manufacturing, construction, logistics, B2B services)
+- Computers & Electronics: Technology and electronic devices (e.g., Hardware, software, IT services, consumer electronics)
+- Fashion: Clothing, footwear, accessories, and style (e.g., Apparel design, manufacturing, retail)
+- Finance: Money management, investments, banking (e.g., Banking, insurance, financial planning, accounting)
+- Firearms & Weapons: Firearms, ammunition, and related equipment (e.g., Guns, rifles, hunting gear)
+- Food & Beverage: Production and sale of food and drinks (e.g., Restaurants, cafes, food manufacturing, grocery stores)
+- Gifts & Shopping: Retail, e-commerce, and consumer goods (e.g., Gift shops, department stores, online retailers)
+- Health & Wellness: Healthcare, personal well-being (e.g., Hospitals, clinics, pharmacies, mental health services, supplements)
+- Hobbies & Leisure: Recreational activities and pastimes (e.g., Arts and crafts, gaming, sports, travel)
+- Home & Garden: Home improvement, décor, gardening (e.g., Furniture, appliances, home décor, landscaping)
+- Hospitality & Travel: Accommodation, tourism, and travel services (e.g., Hotels, resorts, airlines, travel agencies)
+- Internet & Telecommunications: Digital communication and online services (e.g., ISPs, social media platforms)
+- Jobs & Education: Employment, training, and education (e.g., Recruitment, schools, universities, online learning)
+- Kids & Family: Products and services for children and families (e.g., Toys, childcare, parenting resources)
+- Law & Government: Legal services, public administration (e.g., Law firms, government agencies, courts)
+- Lifestyle: Personal interests, values, and way of living (e.g., Fashion, beauty, travel, food)
+- Logistics & Transportation: Movement of goods and people (e.g., Shipping, trucking, warehousing, airlines)
+- Marketing: Promoting products, services, or ideas (e.g., Market research, advertising, digital marketing)
+- Media & Communications: Information dissemination, journalism (e.g., Journalism, publishing, broadcasting)
+- Medical Cannabis: Cannabis for medical use (e.g., Dispensaries, cultivation, medical marijuana products)
+- News: Current events and information (e.g., Newspapers, online news portals)
+- Not For Profit: Charitable organizations and social causes (e.g., Charities, foundations, NGOs)
+- People & Society: Social issues, community, and culture (e.g., Social services, advocacy groups)
+- Pets & Animals: Pet care and animal welfare (e.g., Pet food, veterinary services, animal shelters)
+- Real Estate: Property, land, and buildings (e.g., Residential, commercial, real estate brokerage)
+- Recreational Cannabis: Cannabis for recreational use (where legal) (e.g., Dispensaries, cannabis products)
+- Science: Research, discovery, and innovation (e.g., Scientific research institutions, laboratories)
+- Specialty Products: Unique, niche, or regulated goods (e.g., Antiques, collectibles, luxury goods)
+- Vices & Adult Entertainment: Activities and products considered taboo (e.g., Gambling, pornography, tobacco, alcohol)
+- Other: Any industry not explicitly categorized above.
+"""
+    
+    system_prompt = f"""You are an expert marketing analyst. Analyze the provided website text and extract the following information. Be concise and summarize the findings.
+
+Industry Database:
+{industry_database}
+
+Your Tasks:
+1.  Analyze the website text to determine its primary industry (e.g., "AI-based logistics").
+2.  Compare this identified industry against the 'Industry Database' provided above.
+3.  Format the 'industry' output:
+    - If a clear match is found, return the category name (e.g., "Health & Wellness").
+    - If no clear match is found, return "Not found (Identified as: [Industry you found])".
+4.  Extract all other required information.
+
+- **Target Audience and Pain Points:** The specific groups of people the business wants to reach and the problems they face.
+- **Business Services and/or Products:** The specific offerings that solve the audience's pain points.
+- **Target Location:** The primary geographical market (e.g., USA, California, Global).
+- **Industry/Niche:** [Your formatted output from step 3]
+- **Branding Tone/Voice:** The style and personality of the business's communication.
+- **Branding Guidelines Summary:** Summarize any core messaging or branding principles evident from the text."""
     
     schema = {
         "type": "OBJECT",
@@ -324,7 +376,7 @@ def analyze_scraped_text(api_key, text):
             "target_audience_pain_points": {"type": "STRING"},
             "services_and_products": {"type": "STRING"},
             "target_location": {"type": "STRING"},
-            "industry": {"type": "STRING"},
+            "industry": {"type": "STRING", "description": "The industry, formatted as specified in the prompt."},
             "tone": {"type": "STRING"},
             "guidelines": {"type": "STRING"}
         },
@@ -383,7 +435,8 @@ def convert_df_to_csv(topics_df, available_pages_df, analysis_data, analyzed_url
             ["Website URL:", analyzed_url],
             ["Target Audience and Pain Points:", analysis_data.get('target_audience_pain_points', 'Not found')],
             ["Business Services and/or Products:", analysis_data.get('services_and_products', 'Not found')],
-            ["Target Location:", analysis_data.get('target_location', 'Not found')]
+            ["Target Location:", analysis_data.get('target_location', 'Not found')],
+            ["Identified Industry:", analysis_data.get('industry', 'Not found')]
         ])
         summary_df.to_csv(output, header=False, index=False)
         output.write("\n")
@@ -535,7 +588,7 @@ if generate_btn:
 
             For each generated topic, you must provide six elements:
             - 'topic': A short, concise title (MAXIMUM 60 characters) that frames the product/service as a solution.
-            - 'suggestedHeadline': A longer, more engaging headline for an article.
+            - 'suggestedHeadline': A longer, more engaging headline suitable for a full article.
             - 'rationale': A brief explanation of the topic's value.
             - 'anchorText': A descriptive, concise, and relevant anchor text for an internal link. VARY the type of anchor text according to the proportions above.
             - 'destinationPage': You MUST select the single most relevant URL from the `List of Available URLs` provided. Your selection must be an exact match from that list. Follow this strict priority order: 1. A dedicated product/service page. 2. A relevant blog post. 3. Any other contextually relevant page. If no good match is found, use the `Base Website URL` as the fallback. Do not invent or use placeholder URLs.
@@ -616,6 +669,7 @@ if not st.session_state.dataframe.empty:
             st.markdown(f"**Target Audience and Pain Points:** {analysis.get('target_audience_pain_points', 'Not found')}")
             st.markdown(f"**Business Services and/or Products:** {analysis.get('services_and_products', 'Not found')}")
             st.markdown(f"**Target Location:** {analysis.get('target_location', 'Not found')}")
+            st.markdown(f"**Identified Industry:** {analysis.get('industry', 'Not found')}")
     
     if not st.session_state.available_pages_df.empty:
         st.subheader("Available Pages for Linking")
