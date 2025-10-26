@@ -137,7 +137,6 @@ with st.expander("Instructions"):
         - Page Title
         - Meta Description
         - Content Summary
-        - Suggested Focus Keyword
 
         **Table 3: Topics**
         This section contains the suggested content ideas, organized in a table with the following columns: Category, Group Name, Target Audience, Publication Niche, Funnel Stage, Topic, Suggested Headline, Rationale, Anchor text, Destination Page, Focus Keyword
@@ -229,16 +228,6 @@ def summarize_text(text, sentence_count=1):
         return "No summary available."
     return " ".join(sentences[:sentence_count])
 
-def suggest_focus_keyword(text, top_n=1):
-    """Suggests a focus keyword based on word frequency."""
-    words = re.findall(r"\b[a-zA-Z]{3,}\b", text.lower())
-    filtered = [w for w in words if w not in STOPWORDS]
-    freq = Counter(filtered)
-    if not freq:
-        return "N/A"
-    return ", ".join([w for w, _ in freq.most_common(top_n)])
-
-
 def scrape_page_details(url, headers):
     """Scrapes details from a single page."""
     try:
@@ -255,9 +244,8 @@ def scrape_page_details(url, headers):
         content = soup.get_text(separator=' ', strip=True)
         
         summary = summarize_text(content)
-        keyword = suggest_focus_keyword(content)
 
-        return {'URL': url, 'Page Title': title, 'Meta Description': meta, 'Content Summary': summary, 'Suggested Focus Keyword': keyword}
+        return {'URL': url, 'Page Title': title, 'Meta Description': meta, 'Content Summary': summary}
     except requests.RequestException:
         return None
 
