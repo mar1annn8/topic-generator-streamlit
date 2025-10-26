@@ -137,6 +137,7 @@ with st.expander("Instructions"):
         - Page Title
         - Meta Description
         - Content Summary
+        - Suggested Focus Keyword
 
         **Table 3: Topics**
         This section contains the suggested content ideas, organized in a table with the following columns: Category, Group Name, Target Audience, Publication Niche, Funnel Stage, Topic, Suggested Headline, Rationale, Anchor text, Destination Page, Focus Keyword
@@ -236,6 +237,16 @@ def summarize_text(text, sentence_count=1):
          
     return first_meaningful_sentence
 
+def suggest_focus_keyword(text, top_n=1):
+    """Suggests a focus keyword based on word frequency."""
+    words = re.findall(r"\b[a-zA-Z]{3,}\b", text.lower())
+    filtered = [w for w in words if w not in STOPWORDS]
+    freq = Counter(filtered)
+    if not freq:
+        return "N/A"
+    return ", ".join([w for w, _ in freq.most_common(top_n)])
+
+
 def scrape_page_details(url, headers):
     """Scrapes details from a single page."""
     try:
@@ -247,11 +258,19 @@ def scrape_page_details(url, headers):
         meta_tag = soup.find('meta', attrs={'name': 'description'})
         meta = meta_tag['content'].strip() if meta_tag and meta_tag.get('content') else "No Meta Description"
         
-        for script in soup(["script", "style", "nav", "header", "footer"]): # Remove junk elements
-            script.extract()
+        # Remove common junk elements by tag
+        for junk_tag in soup(["script", "style", "nav", "header", "footer", "aside"]):
+            junk_tag.extract()
         
+        # Remove common junk elements by ID or class
+        for junk_id in soup.find_all(id=re.compile("menu|nav|header|footer")):
+            junk_id.extract()
+        for junk_class in soup.find_all(class_=re.compile("menu|nav|header|footer")):
+            junk_class.extract()
+
         # Try to find main content, fallback to body
         main_content = soup.find("main") or soup.find("article") or soup.find("body")
+        
         content = "No summary available."
         if main_content:
             # Get text from paragraphs
@@ -262,15 +281,17 @@ def scrape_page_details(url, headers):
                     p_text = p.get_text(separator=' ', strip=True)
                     if len(p_text.split()) > 10: # At least 10 words
                         content = p_text
-                        break
+                        break # Found the first good paragraph
             
-            # If no good paragraph, fallback to main content text
+            # If no good paragraph, fallback to main content text, but clean it
             if content == "No summary available.":
                 content = main_content.get_text(separator=' ', strip=True)
+                content = re.sub(r'\s+', ' ', content) # Normalize whitespace
 
         summary = summarize_text(content) # Use the summarize function on the cleaner text
+        keyword = suggest_focus_keyword(content)
 
-        return {'URL': url, 'Page Title': title, 'Meta Description': meta, 'Content Summary': summary}
+        return {'URL': url, 'Page Title': title, 'Meta Description': meta, 'Content Summary': summary, 'Suggested Focus Keyword': keyword}
     except requests.RequestException:
         return None
 
@@ -617,7 +638,7 @@ with col1:
     generate_btn = st.button("Generate Topics", type="primary")
 
 with col2:
-    api_tag = '<span class="status-tag tag-green">API Key</span>' if api_key_ready else '<span class="status-tag tag-red">API Key</span>'
+    api_tag = '<span class.status-tag tag-green">API Key</span>' if api_key_ready else '<span class="status-tag tag-red">API Key</span>'
     details_tag = '<span class="status-tag tag-green">Business Details</span>' if details_ready else '<span class.status-tag tag-red">Business Details</span>'
     st.markdown(f"""
     <div style="display: flex; align-items: center; height: 100%;">
