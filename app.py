@@ -466,29 +466,47 @@ def prepare_dataframe(data):
     rows = []
     header = ["Category", "Group Name", "Target Audience", "Publication Niche", "Funnel Stage", "Topic", "Suggested Headline", "Rationale", "Anchor text", "Destination Page", "Focus Keyword"]
     
-    def process_group(group_data, category, group_key, label):
-        for item in group_data.get(group_key, []):
-            group_name = item.get(label)
-            for funnel in item.get('funnels', []):
-                for audience in funnel.get('audiences', []):
-                    for pub in audience.get('publications', []):
-                        for topic in pub.get('topics', []):
-                            rows.append({
-                                "Category": category,
-                                "Group Name": group_name,
-                                "Target Audience": audience.get('audienceName'),
-                                "Publication Niche": pub.get('publicationNiche'),
-                                "Funnel Stage": funnel.get('funnelStage'),
-                                "Topic": topic.get('topic'),
-                                "Suggested Headline": topic.get('suggestedHeadline'),
-                                "Rationale": topic.get('rationale'),
-                                "Anchor text": topic.get('anchorText'),
-                                "Destination Page": topic.get('destinationPage'),
-                                "Focus Keyword": topic.get('focusKeyword')
-                            })
+    # 1. Process topics for Products/Services
+    for item in data.get('productBasedTopics', []):
+        group_name = item.get('productName')
+        for funnel in item.get('funnels', []):
+            for audience in funnel.get('audiences', []):
+                for pub in audience.get('publications', []):
+                    for topic in pub.get('topics', []):
+                        rows.append({
+                            "Category": "Product/Service",
+                            "Group Name": group_name,
+                            "Target Audience": audience.get('audienceName'),
+                            "Publication Niche": pub.get('publicationNiche'),
+                            "Funnel Stage": funnel.get('funnelStage'),
+                            "Topic": topic.get('topic'),
+                            "Suggested Headline": topic.get('suggestedHeadline'),
+                            "Rationale": topic.get('rationale'),
+                            "Anchor text": topic.get('anchorText'),
+                            "Destination Page": topic.get('destinationPage'),
+                            "Focus Keyword": topic.get('focusKeyword')
+                        })
 
-    process_group(data, 'Product/Service', 'productBasedTopics', 'productName')
-    process_group(data, 'Timely/Event', 'timelyTopics', 'eventName')
+    # 2. Process topics for Available Pages
+    for page in data.get('pageBasedTopics', []):
+        group_name = page.get('pageTitle')
+        for funnel in page.get('funnels', []):
+            for audience in funnel.get('audiences', []):
+                for pub in audience.get('publications', []):
+                    for topic in pub.get('topics', []):
+                        rows.append({
+                            "Category": "Available Page",
+                            "Group Name": group_name,
+                            "Target Audience": audience.get('audienceName'),
+                            "Publication Niche": pub.get('publicationNiche'),
+                            "Funnel Stage": funnel.get('funnelStage'),
+                            "Topic": topic.get('topic'),
+                            "Suggested Headline": topic.get('suggestedHeadline'),
+                            "Rationale": topic.get('rationale'),
+                            "Anchor text": topic.get('anchorText'),
+                            "Destination Page": topic.get('destinationPage'),
+                            "Focus Keyword": topic.get('focusKeyword')
+                        })
 
     return pd.DataFrame(rows, columns=header)
 
@@ -593,21 +611,24 @@ if generate_btn:
         with st.spinner("Generating topics... This may take up to a minute."):
             current_date = datetime.now().strftime('%B %d, %Y')
             
-            system_prompt = """You are a strategic content and marketing analyst. Your task is to generate two distinct sets of guest post topics based on the provided business details and the current date. The topic generation must be guided by the marketing funnel principles (ToFu, MoFu, BoFu) and a diverse anchor text strategy.
+            system_prompt = """You are a strategic content and marketing analyst. Your task is to generate two distinct sets of topics based on the provided business details:
+            
+            1.  **Topics for each Product/Service:** For EACH item in the `List of Business Services`, generate topics for all three marketing funnels (ToFu, MoFu, BoFu).
+            2.  **Topics for each Available Page:** For EACH item in the `List of Available Pages`, generate topics for all three marketing funnels (ToFu, MoFu, BoFu).
 
-            First, analyze the provided text (which may be copywriting guidelines or a collection of details) to extract the business's industry, tone, target audiences, and products/services. When you identify a product, service, or event, summarize it into a short, clear name (e.g., "AI Security Solution" or "Annual Tech Conference") for the `productName` or `eventName` field.
-
-            Second, generate topics for two categories: "Product-Based" and "Timely & Event-Based." Ensure a diverse mix of anchor text types across all generated topics, guided by these ideal proportions: Branded (50%), Naked URL (20%), Page Title (20%), Generic/Random (2-5%), Exact Match (2-5%), Partial Match (2-5%).
+            For EACH funnel stage (ToFu, MoFu, BoFu) in both sets, you must identify a relevant `audienceName` and `publicationNiche`, and then provide at least one topic.
 
             For each generated topic, you must provide six elements:
-            - 'topic': A short, concise title (MAXIMUM 60 characters) that frames the product/service as a solution.
+            - 'topic': A short, concise title (MAXIMUM 60 characters).
             - 'suggestedHeadline': A longer, more engaging headline for an article.
             - 'rationale': A brief explanation of the topic's value.
-            - 'anchorText': A descriptive, concise, and relevant anchor text for an internal link. VARY the type of anchor text according to the proportions above.
-            - 'destinationPage': You MUST select the single most relevant URL from the `List of Available URLs` provided. Your selection must be an exact match from that list. Follow this strict priority order: 1. A dedicated product/service page. 2. A relevant blog post. 3. Any other contextually relevant page. If no good match is found, use the `Base Website URL` as the fallback. Do not invent or use placeholder URLs.
+            - 'anchorText': A descriptive, concise, and relevant anchor text. VARY the type of anchor text (Branded, Naked, Title, Generic, Exact Match, Partial Match) based on the context.
+            - 'destinationPage': 
+                - For `productBasedTopics`, select the most relevant URL from the `List of Available URLs` that matches the product.
+                - For `pageBasedTopics`, this MUST be the *exact* `pageURL` for the page you are generating topics for.
             - 'focusKeyword': Based on the topic and headline, suggest a primary focus keyword for the content.
             
-            The final output must be a single JSON object with two top-level keys: `productBasedTopics` and `timelyTopics`, adhering to the provided schema.
+            The final output must be a single JSON object adhering to the provided schema.
             """
 
             user_query = f"Current Date: {current_date}\n\n"
@@ -618,6 +639,21 @@ if generate_btn:
                      for page in st.session_state.scraped_links:
                          user_query += f"- {page['URL']} (Context: {page['Page Title']})\n"
                      user_query += "\n"
+            
+            if st.session_state.analysis_results:
+                products_list = st.session_state.analysis_results.get('business_services_products', [])
+                if products_list:
+                    user_query += "List of Business Services to generate topics for:\n"
+                    for product in products_list:
+                        user_query += f"- {product['service_or_product']} (Audience: {product['associated_audience']}, Pain Point: {product['associated_pain_point']})\n"
+                    user_query += "\n"
+
+            if not st.session_state.available_pages_df.empty:
+                user_query += "List of Available Pages to generate topics for:\n"
+                pages_list = st.session_state.available_pages_df.to_dict('records')
+                for page in pages_list:
+                    user_query += f"- Page Title: {page['Page Title']}\n  URL: {page['URL']}\n  Summary: {page['Content Summary']}\n"
+                user_query += "\n"
 
 
             if st.session_state.guidelines:
@@ -638,9 +674,12 @@ if generate_btn:
             publication_properties = {"type": "OBJECT", "properties": {"publicationNiche": {"type": "STRING"}, "topics": {"type": "ARRAY", "items": topic_properties}}, "required": ["publicationNiche", "topics"]}
             audience_properties = {"type": "OBJECT", "properties": {"audienceName": {"type": "STRING"}, "publications": {"type": "ARRAY", "items": publication_properties}}, "required": ["audienceName", "publications"]}
             funnel_properties = {"type": "OBJECT", "properties": {"funnelStage": {"type": "STRING", "enum": ["ToFu", "MoFu", "BoFu"]}, "audiences": {"type": "ARRAY", "items": audience_properties}}, "required": ["funnelStage", "audiences"]}
-            product_based_topics_properties = {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"productName": {"type": "STRING", "description": "A short, summarized name for the product/service (e.g., 'AI Security Solution')."}, "funnels": {"type": "ARRAY", "items": funnel_properties}}, "required": ["productName", "funnels"]}}
-            timely_topics_properties = {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"eventName": {"type": "STRING", "description": "A short, summarized name for the event or holiday (e.g., 'Q4 Sales Kickoff')."}, "funnels": {"type": "ARRAY", "items": funnel_properties}}, "required": ["eventName", "funnels"]}}
-            schema = {"type": "OBJECT", "properties": {"productBasedTopics": product_based_topics_properties, "timelyTopics": timely_topics_properties}, "required": ["productBasedTopics", "timelyTopics"]}
+            
+            product_based_topics_properties = {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"productName": {"type": "STRING", "description": "The name of the product/service."}, "funnels": {"type": "ARRAY", "items": funnel_properties}}, "required": ["productName", "funnels"]}}
+            
+            page_based_topics_properties = {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"pageTitle": {"type": "STRING"}, "pageURL": {"type": "STRING"}, "funnels": {"type": "ARRAY", "items": funnel_properties}}, "required": ["pageTitle", "pageURL", "funnels"]}}
+            
+            schema = {"type": "OBJECT", "properties": {"productBasedTopics": product_based_topics_properties, "pageBasedTopics": page_based_topics_properties}, "required": ["productBasedTopics", "pageBasedTopics"]}
 
             api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key={st.session_state.api_key}"
             payload = {"contents": [{"parts": [{"text": user_query}]}], "systemInstruction": {"parts": [{"text": system_prompt}]}, "generationConfig": {"responseMimeType": "application/json", "responseSchema": schema}}
