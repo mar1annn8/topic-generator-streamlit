@@ -83,7 +83,7 @@ st.markdown("""
 This AI tool generates topic ideas based on the marketing funnel concepts from 
 [SEMRush](https://www.semrush.com/blog/content-marketing-funnel/), 
 [Search Engine Land](https://searchengineland.com/how-to-drive-the-funnel-through-content-marketing-and-link-building-374343), and
-Google's guidelines on creating [helpful, reliable, people-first content](https://developers.google.com/search/docs/fundamentals/creating-helpful-content).
+Google's guidelines on creating [helpful, reliable, people-first content](https://developers.google.com/search/docs/fundamentals/creating-helpful-content) and [link best practices](https://developers.google.com/search/docs/crawling-indexing/links-crawlable).
 This approach ensures topics are valuable to the target audience by emphasizing expertise, authoritativeness, and trustworthiness (E-E-A-T).
 """)
 
@@ -122,7 +122,7 @@ with st.expander("Instructions"):
 
         **4. View and Understand the Output**
 
-        The results will appear in the main window, just below the “Generate Topics” button. The output includes two parts:
+        The results will appear in the main window, just below the “Generate Topics” button. The output includes three parts:
 
         **Table 1: Business Analysis Summary**
         This section gives a quick overview of the business, including Website URL, Target Location, Identified Industry, Target Audience and Pain Points. It also includes a detailed breakdown of:
@@ -131,8 +131,16 @@ with st.expander("Instructions"):
         - Associated Audience
         - Associated Pain Point
 
-        **Table 2: Topics**
-        This section contains the suggested content ideas, organized in a table with the following columns: Category, Group Name, Target Audience, Publication Niche, Funnel Stage, Topic, Suggested Headline, Rationale
+        **Table 2: Available Pages for Linking**
+        A table listing all available, crawlable pages from the analyzed website. This table includes:
+        - URL
+        - Page Title
+        - Meta Description
+        - Content Summary
+        - Suggested Focus Keyword
+
+        **Table 3: Topics**
+        This section contains the suggested content ideas, organized in a table with the following columns: Category, Group Name, Target Audience, Publication Niche, Funnel Stage, Topic, Suggested Headline, Rationale, Anchor text, Destination Page, Focus Keyword
 
         Each row in the table represents a content idea. The AI groups topics by product, service, or event, and aligns them with the right funnel stage and audience.
 
@@ -193,9 +201,11 @@ if 'product_input' not in st.session_state: st.session_state.product_input = ""
 if 'guidelines' not in st.session_state: st.session_state.guidelines = ""
 if 'analysis_results' not in st.session_state: st.session_state.analysis_results = None
 if 'analyzed_url' not in st.session_state: st.session_state.analyzed_url = ""
+if 'scraped_links' not in st.session_state: st.session_state.scraped_links = []
 if 'generated_data' not in st.session_state: st.session_state.generated_data = None
 if 'analyze_btn_clicked' not in st.session_state: st.session_state.analyze_btn_clicked = False
 if 'dataframe' not in st.session_state: st.session_state.dataframe = pd.DataFrame()
+if 'available_pages_df' not in st.session_state: st.session_state.available_pages_df = pd.DataFrame()
 
 
 # --- Functions ---
@@ -210,8 +220,50 @@ def validate_api_key(api_key):
     except requests.RequestException:
         return False
 
+def summarize_text(text, sentence_count=1):
+    """Simple extractive summary."""
+    text = re.sub(r'\s+', ' ', text) # Normalize whitespace
+    sentences = re.split(r'(?<=[.!?]) +', text)
+    sentences = [s for s in sentences if len(s.split()) > 5] # Filter short sentences
+    if not sentences:
+        return "No summary available."
+    return " ".join(sentences[:sentence_count])
+
+def suggest_focus_keyword(text, top_n=1):
+    """Suggests a focus keyword based on word frequency."""
+    words = re.findall(r"\b[a-zA-Z]{3,}\b", text.lower())
+    filtered = [w for w in words if w not in STOPWORDS]
+    freq = Counter(filtered)
+    if not freq:
+        return "N/A"
+    return ", ".join([w for w, _ in freq.most_common(top_n)])
+
+
+def scrape_page_details(url, headers):
+    """Scrapes details from a single page."""
+    try:
+        response = requests.get(url, headers=headers, timeout=5)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.content, 'html.parser')
+
+        title = soup.title.string.strip() if soup.title else "No Title"
+        meta_tag = soup.find('meta', attrs={'name': 'description'})
+        meta = meta_tag['content'].strip() if meta_tag and meta_tag.get('content') else "No Meta Description"
+        
+        for script in soup(["script", "style"]):
+            script.extract()
+        content = soup.get_text(separator=' ', strip=True)
+        
+        summary = summarize_text(content)
+        keyword = suggest_focus_keyword(content)
+
+        return {'URL': url, 'Page Title': title, 'Meta Description': meta, 'Content Summary': summary, 'Suggested Focus Keyword': keyword}
+    except requests.RequestException:
+        return None
+
+
 def scrape_website(url):
-    """Scrapes the text content from a given URL."""
+    """Scrapes the main page and extracts internal links and their details."""
     try:
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
         response = requests.get(url, headers=headers, timeout=10)
@@ -221,11 +273,36 @@ def scrape_website(url):
         for script in soup(["script", "style"]):
             script.extract()
             
-        text = soup.get_text(separator='\n', strip=True)
+        main_text = soup.get_text(separator='\n', strip=True)
+
+        links = set()
+        base_netloc = urlparse(url).netloc
+        for a_tag in soup.find_all('a', href=True):
+            href = a_tag['href']
+            if href.startswith('#') or href.startswith('mailto:') or href.startswith('tel:'):
+                continue
+            
+            full_url = urljoin(url, href)
+            if urlparse(full_url).netloc == base_netloc:
+                clean_url = urljoin(full_url, urlparse(full_url).path)
+                links.add(clean_url)
         
-        return text[:15000], None
+        pages = []
+        homepage_details = scrape_page_details(url, headers)
+        if homepage_details:
+            pages.append(homepage_details)
+        
+        for link in list(links)[:19]: # Limit total crawl to 20 pages
+             if link != url:
+                details = scrape_page_details(link, headers)
+                if details:
+                    pages.append(details)
+        
+        unique_pages = list({p['URL']: p for p in pages}.values())
+        
+        return main_text[:15000], unique_pages, None
     except requests.RequestException as e:
-        return None, f"Failed to fetch website content: {e}"
+        return None, [], f"Failed to fetch website content: {e}"
 
 def analyze_scraped_text(api_key, text):
     """Uses AI to analyze scraped text and extract business details."""
@@ -448,7 +525,7 @@ if st.session_state.get('analyze_btn_clicked', False):
                     st.session_state.analyzed_url = website_url
                     st.session_state.scraped_links = scraped_pages
                     st.session_state.available_pages_df = pd.DataFrame(scraped_pages)
-                    st.session_state.industry = analysis.get('industry', '')
+                    st.session_state.industry = analysis.get('identified_industry', '')
                     st.session_state.tone = analysis.get('branding_tone_voice', '')
                     st.session_state.audience_input = analysis.get('target_audience_pain_points', '')
                     
