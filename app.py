@@ -252,9 +252,9 @@ def scrape_page_details(url, headers):
             junk_tag.extract()
         
         # Remove common junk elements by ID or class
-        for junk_id in soup.find_all(id=re.compile("menu|nav|header|footer|sidebar")):
+        for junk_id in soup.find_all(id=re.compile("menu|nav|header|footer|sidebar", re.IGNORECASE)):
             junk_id.extract()
-        for junk_class in soup.find_all(class_=re.compile("menu|nav|header|footer|sidebar|skip")):
+        for junk_class in soup.find_all(class_=re.compile("menu|nav|header|footer|sidebar|skip", re.IGNORECASE)):
             junk_class.extract()
         for junk_role in soup.find_all(role=re.compile("navigation|banner|contentinfo|complementary")):
             junk_role.extract()
@@ -276,9 +276,9 @@ def scrape_page_details(url, headers):
             
             # If no good paragraph, fallback to main content text, but clean it
             if content == "No summary available.":
-                content = main_content.get_text(separator=' ', strip=True)
-                content = re.sub(r'\s+', ' ', content) # Normalize whitespace
-
+                all_text = main_content.get_text(separator=' ', strip=True)
+                content = re.sub(r'\s+', ' ', all_text) # Normalize whitespace
+        
         summary = summarize_text(content) # Use the summarize function on the cleaner text
 
         return {'URL': url, 'Page Title': title, 'Meta Description': meta, 'Content Summary': summary}
