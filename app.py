@@ -532,7 +532,11 @@ def convert_df_to_csv(topics_df, available_pages_df, analysis_data, analyzed_url
     # Table 2: Available Pages for Linking
     if not available_pages_df.empty:
         output.write("Table 2: Available Pages for Linking\n")
-        available_pages_df.to_csv(output, index=False)
+        # Ensure available_pages_df is a DataFrame before exporting
+        if isinstance(available_pages_df, pd.DataFrame):
+            available_pages_df.to_csv(output, index=False)
+        else:
+            pd.DataFrame(available_pages_df).to_csv(output, index=False)
         output.write("\n")
 
     # Table 3: Topics
@@ -755,7 +759,7 @@ if generate_btn:
             audience_properties = {"type": "OBJECT", "properties": {"audienceName": {"type": "STRING"}, "publications": {"type": "ARRAY", "items": publication_properties}}, "required": ["audienceName", "publications"]}
             funnel_properties = {"type": "OBJECT", "properties": {"funnelStage": {"type": "STRING", "enum": ["ToFu", "MoFu", "BoFu"]}, "audiences": {"type": "ARRAY", "items": audience_properties}}, "required": ["funnelStage", "audiences"]}
             
-            product_based_topics_properties = {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"productName": {"type": "STRING", "description": "The name of the product/service."}, "funnels": {"type": "ARRAY", "items": funnel_properties}}, "required": ["productName", "funnels"]}}
+            product_based_topics_properties = {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"productName": {"type": "STRING", "description": "The name of the product/service."}, "funnels": {"type":A "ARRAY", "items": funnel_properties}}, "required": ["productName", "funnels"]}}
             
             page_based_topics_properties = {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"pageTitle": {"type": "STRING"}, "pageURL": {"type": "STRING"}, "funnels": {"type": "ARRAY", "items": funnel_properties}}, "required": ["pageTitle", "pageURL", "funnels"]}}
             
