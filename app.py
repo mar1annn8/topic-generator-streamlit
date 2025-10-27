@@ -11,13 +11,17 @@ import re
 from collections import Counter
 import nltk
 import html
+import logging
 
 # --- Download NLTK data ---
 try:
-    nltk.data.find('corpora/stopwords')
+    STOPWORDS = set(stopwords.words("english"))
 except LookupError:
-    nltk.download('stopwords')
-from nltk.corpus import stopwords
+    nltk.download("stopwords")
+    STOPWORDS = set(stopwords.words("english"))
+
+# --- Setup Logger ---
+logger = logging.getLogger(__name__)
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -209,8 +213,9 @@ if 'available_pages_df' not in st.session_state: st.session_state.available_page
 
 
 # --- Functions ---
-STOPWORDS = set(stopwords.words("english"))
 BOILERPLATE_TOKENS = ['©', 'privacy', 'terms', 'cookie', 'subscribe', 'navigation']
+MIN_PARAGRAPH_WORDS = 6
+MIN_DIV_WORDS = 12
 
 def is_boilerplate(s):
     return any(tok in s.lower() for tok in BOILERPLATE_TOKENS)
@@ -273,30 +278,52 @@ def clean_soup(soup):
 
 def get_best_paragraph(soup):
     """Return the best candidate paragraph text from the parsed page."""
-    # 1) Prefer <main> or <article>
-    main_content = soup.find("main") or soup.find("article") or soup.find("div", attrs={"role": "main"})
     candidates = []
+
+    # 1) Prefer paragraphs with >= MIN_PARAGRAPH_WORDS
+    main_content = soup.find("main") or soup.find("article") or soup.find("div", attrs={"role": "main"})
     if main_content:
-        candidates += [p.get_text(separator=' ', strip=True) for p in main_content.find_all("p") if not is_boilerplate(p.get_text(strip=True))]
+        candidates += [p.get_text(separator=' ', strip=True) for p in main_content.find_all("p") if not is_boilerplate(p.get_text(strip=True)) and len(p.get_text(strip=True).split()) >= MIN_PARAGRAPH_WORDS]
 
     # 2) If none found, examine all <p> in body
     if not candidates:
         body = soup.find("body")
         if body:
-            candidates = [p.get_text(separator=' ', strip=True) for p in body.find_all("p") if not is_boilerplate(p.get_text(strip=True))]
+            candidates = [p.get_text(separator=' ', strip=True) for p in body.find_all("p") if not is_boilerplate(p.get_text(strip=True)) and len(p.get_text(strip=True).split()) >= MIN_PARAGRAPH_WORDS]
+
+    # 2a) consider headings with following sibling text (PATCH #2)
+    if not candidates:
+        for h in soup.find_all(['h1','h2','h3']):
+            heading = h.get_text(separator=' ', strip=True)
+            sib = h.find_next_sibling()
+            gathered = []
+            while sib and len(' '.join(gathered).split()) < 60:
+                txt = sib.get_text(separator=' ', strip=True)
+                if txt:
+                    gathered.append(txt)
+                sib = sib.find_next_sibling()
+            combined = ' '.join([heading] + gathered).strip()
+            if len(combined.split()) >= MIN_PARAGRAPH_WORDS and not is_boilerplate(combined):
+                candidates.append(combined)
 
     # 3) If still empty, try collecting large text blocks from divs
     if not candidates:
         div_texts = []
         for d in soup.find_all("div"):
             txt = d.get_text(separator=' ', strip=True)
-            if txt and len(txt.split()) >= 20 and not is_boilerplate(txt):
+            if txt and len(txt.split()) >= MIN_DIV_WORDS and not is_boilerplate(txt): # Use MIN_DIV_WORDS
                 div_texts.append(txt)
         candidates = div_texts
 
-    # 4) Choose best candidate: prefer first paragraph >=10 words, otherwise the longest candidate
+    # 4) As last resort, use body text chunks split by double newline or long sentences
+    if not candidates:
+        full = soup.get_text(separator='\n', strip=True)
+        chunks = [c.strip() for c in re.split(r'\n{2,}|\r\n{2,}', full) if len(c.split()) >= MIN_PARAGRAPH_WORDS and not is_boilerplate(c)]
+        candidates = chunks
+
+    # 5) Choose best candidate: prefer first paragraph >=MIN_PARAGRAPH_WORDS, otherwise the longest candidate
     for p in candidates:
-        if p and len(p.split()) >= 8:
+        if p and len(p.split()) >= MIN_PARAGRAPH_WORDS: # Use MIN_PARAGRAPH_WORDS
             return p.strip()
     if candidates:
         longest = max(candidates, key=lambda s: len(s.split()))
@@ -315,19 +342,19 @@ def scrape_page_details(url, headers):
         meta = extract_meta_description(soup)
 
         soup = clean_soup(soup)
-        content_text = get_best_paragraph(soup)
+        content_text = get_best_paragraph(soup) # This now uses the new function
 
         # Better fallback: remove title/meta and pick the longest meaningful chunk
         if not content_text:
             full_text = soup.get_text(separator='\n', strip=True)
-            if title and title in full_text:
+            if title and title != "No Title" and title in full_text:
                 # remove only the first occurrence to preserve repeated phrases later
-                full_text = re.sub(rf'\b{re.escape(title)}\b', '', full_text, count=1, flags=re.IGNORECASE)
+                full_text = re.sub(rf'\b{re.escape(title)}\b', '', full_text, count=1, flags=re.IGNORECASE).strip()
             if meta and meta != "No Meta Description" and meta in full_text:
-                full_text = re.sub(rf'\b{re.escape(meta)}\b', '', full_text, count=1, flags=re.IGNORECASE)
+                full_text = re.sub(rf'\b{re.escape(meta)}\b', '', full_text, count=1, flags=re.IGNORECASE).strip()
 
-            # Keep only lines that look meaningful (>= 8 words)
-            lines = [ln.strip() for ln in full_text.splitlines() if len(ln.split()) >= 8 and not is_boilerplate(ln)]
+            # Keep only lines that look meaningful (>= 8 words, but using new constant)
+            lines = [ln.strip() for ln in full_text.splitlines() if len(ln.split()) >= MIN_PARAGRAPH_WORDS and not is_boilerplate(ln)]
             if lines:
                 content_text = max(lines, key=lambda s: len(s.split()))
             else:
@@ -339,7 +366,7 @@ def scrape_page_details(url, headers):
 
         # Guard: if summary equals the title, try alternative paragraph or give empty summary
         if summary and title and summary.strip().lower() == title.strip().lower():
-            paras = [p.get_text(separator=' ', strip=True) for p in soup.find_all('p') if len(p.get_text(strip=True).split()) >= 8]
+            paras = [p.get_text(separator=' ', strip=True) for p in soup.find_all('p') if len(p.get_text(strip=True).split()) >= MIN_PARAGRAPH_WORDS]
             # prefer paragraph that is not the title and not identical to content_text
             paras = [p for p in paras if p.strip().lower() != title.strip().lower() and p.strip().lower() != (content_text or "").strip().lower()]
             alt = max(paras, key=lambda s: len(s.split())) if paras else ""
@@ -353,7 +380,8 @@ def scrape_page_details(url, headers):
                     summary = ""
 
         if not summary:
-            print(f"[debug] no summary for {url}; title='{title}' content_text_len={len(content_text or '')}")
+            # Use logger.debug for production, print for this environment
+            logger.debug("no summary for %s; title=%s content_len=%d", url, title, len(content_text.split()) if content_text else 0)
             summary = ""  # caller can decide placeholder display
 
         return {'URL': url, 'Page Title': title, 'Meta Description': meta, 'Content Summary': summary}
