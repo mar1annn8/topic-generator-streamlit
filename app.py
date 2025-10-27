@@ -231,8 +231,12 @@ def summarize_text(text, sentence_count=1):
             first_meaningful_sentence = s.strip()
             break
     
-    if first_meaningful_sentence == "No summary available." and len(text) > 20:
+    if first_meaningful_sentence == "No summary available." and len(text) > 150:
          return text[:150] + "..." # Fallback to a snippet
+    elif first_meaningful_sentence == "No summary available." and len(text) > 10:
+        return text
+    elif first_meaningful_sentence == "No summary available.":
+        return "No summary available."
          
     return first_meaningful_sentence
 
@@ -260,7 +264,7 @@ def scrape_page_details(url, headers):
             junk_role.extract()
 
         # Try to find main content, fallback to body
-        main_content = soup.find("main") or soup.find("article") or soup.find("body")
+        main_content = soup.find("main") or soup.find("article") or soup.find("div", role="main")
         
         content = "No summary available."
         if main_content:
@@ -279,6 +283,18 @@ def scrape_page_details(url, headers):
                 all_text = main_content.get_text(separator=' ', strip=True)
                 content = re.sub(r'\s+', ' ', all_text) # Normalize whitespace
         
+        # If no main_content was found, try to find paragraphs in the body
+        if content == "No summary available.":
+             body_pars = soup.find("body")
+             if body_pars:
+                paragraphs = body_pars.find_all("p")
+                if paragraphs:
+                    for p in paragraphs:
+                        p_text = p.get_text(separator=' ', strip=True)
+                        if len(p_text.split()) > 10:
+                            content = p_text
+                            break
+
         summary = summarize_text(content) # Use the summarize function on the cleaner text
 
         return {'URL': url, 'Page Title': title, 'Meta Description': meta, 'Content Summary': summary}
