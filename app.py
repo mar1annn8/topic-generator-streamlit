@@ -13,15 +13,17 @@ import nltk
 import html
 import logging
 
-# --- Download NLTK data ---
-from nltk.corpus import stopwords
+# --- Download NLTK data (Patch 1) ---
+# Ensure NLTK data is available
 try:
-    STOPWORDS = set(stopwords.words("english"))
+    nltk.data.find('corpora/stopwords')
 except LookupError:
-    nltk.download("stopwords")
-    STOPWORDS = set(stopwords.words("english"))
+    nltk.download('stopwords')
+from nltk.corpus import stopwords
+STOPWORDS = set(stopwords.words("english"))
 
-# --- Setup Logger ---
+
+# --- Setup Logger (Patch 3) ---
 logger = logging.getLogger(__name__)
 
 # --- Page Configuration ---
