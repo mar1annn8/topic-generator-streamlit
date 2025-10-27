@@ -14,6 +14,7 @@ import html
 import logging
 
 # --- Download NLTK data ---
+from nltk.corpus import stopwords
 try:
     STOPWORDS = set(stopwords.words("english"))
 except LookupError:
