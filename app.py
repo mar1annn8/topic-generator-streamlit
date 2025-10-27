@@ -10,13 +10,19 @@ import os
 import re
 from collections import Counter
 import nltk
+import html
+import logging
 
 # --- Download NLTK data ---
-try:
-    nltk.data.find('corpora/stopwords')
-except LookupError:
-    nltk.download('stopwords')
 from nltk.corpus import stopwords
+try:
+    STOPWORDS = set(stopwords.words("english"))
+except LookupError:
+    nltk.download("stopwords")
+    STOPWORDS = set(stopwords.words("english"))
+
+# --- Setup Logger ---
+logger = logging.getLogger(__name__)
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -118,11 +124,11 @@ with st.expander("Instructions"):
 
         **3. Generate Topic Ideas**
 
-        Once the fields are filled out, click the ‘Generate Topics’ button. The tool will take a few moments to process your request.
+        Once the fields are filled out, click the “Generate Topics” button. The tool will take a few moments to process your request.
 
         **4. View and Understand the Output**
 
-        The results will appear in the main window, just below the ‘Generate Topics’ button. The output includes three parts:
+        The results will appear in the main window, just below the “Generate Topics” button. The output includes three parts:
 
         **Table 1: Business Analysis Summary**
         This section gives a quick overview of the business, including Website URL, Target Location, Identified Industry, Target Audience and Pain Points. It also includes a detailed breakdown of:
@@ -145,7 +151,7 @@ with st.expander("Instructions"):
 
         **Tips for Better Results**
 
-        - Prioritize the Guidelines Field: Use a complete document in the ‘Full Copywriting Guidelines’ field for the most accurate suggestions
+        - Prioritize the Guidelines Field: Use a complete document in the “Full Copywriting Guidelines” field for the most accurate suggestions
         - Add Specifics When Needed: If the topics feel too broad, use the other fields to guide the AI
         - Treat as a Starting Point: Review and refine the output before pitching or publishing. A strategist should ensure the ideas match your goals
         """)
@@ -208,7 +214,12 @@ if 'available_pages_df' not in st.session_state: st.session_state.available_page
 
 
 # --- Functions ---
-STOPWORDS = set(stopwords.words("english"))
+BOILERPLATE_TOKENS = ['©', 'privacy', 'terms', 'cookie', 'subscribe', 'navigation']
+MIN_PARAGRAPH_WORDS = 6
+MIN_DIV_WORDS = 12
+
+def is_boilerplate(s):
+    return any(tok in s.lower() for tok in BOILERPLATE_TOKENS)
 
 def validate_api_key(api_key):
     """Checks if the API key is valid by making a simple request."""
@@ -219,31 +230,160 @@ def validate_api_key(api_key):
     except requests.RequestException:
         return False
 
+# --- NEW SCRAPING & SUMMARIZING FUNCTIONS ---
+
 def summarize_text(text, sentence_count=1):
-    """Simple extractive summary."""
-    text = re.sub(r'\s+', ' ', text) # Normalize whitespace
-    sentences = re.split(r'(?<=[.!?]) +', text)
-    sentences = [s for s in sentences if len(s.split()) > 5] # Filter short sentences
-    if not sentences:
-        return "No summary available."
-    return " ".join(sentences[:sentence_count])
+    """Simple extractive summary from real text. Returns empty string if input is empty/placeholder."""
+    if not text or text.strip() == "" or text.strip().lower() == "no summary available.":
+        return ""  # explicit empty summary to avoid returning the placeholder
+    
+    text = html.unescape(re.sub(r'\s+', ' ', text))  # Normalize whitespace and unescape entities
+    # Split into sentences (simple heuristic)
+    sentences = re.split(r'(?<=[.!?])\s+', text)
+    # Choose the first sentence that's long enough, otherwise the longest sentence, otherwise a snippet
+    for s in sentences:
+        if len(s.split()) >= 8:
+            return s.strip()
+    if sentences:
+        longest = max(sentences, key=lambda s: len(s.split()))
+        if len(longest.split()) >= 4:
+            return longest.strip()
+    # fallback snippet
+    return (text[:200].rstrip() + "...") if len(text) > 200 else text.strip()
+
+def extract_meta_description(soup):
+    """Robust meta description lookup."""
+    # common patterns: <meta name="description">, <meta property="og:description">, <meta name="twitter:description">
+    selectors = [
+        ('name', 'description'),
+        ('property', 'og:description'),
+        ('name', 'twitter:description'),
+        ('itemprop', 'description'),
+    ]
+    for attr, val in selectors:
+        tag = soup.find('meta', attrs={attr: val})
+        if tag and tag.get('content'):
+            return tag['content'].strip()
+    return "No Meta Description"
+
+def clean_soup(soup):
+    """Remove unwanted tags and attributes to make text extraction cleaner."""
+    for junk_tag in soup(["script", "style", "nav", "header", "footer", "aside", "form", "noscript"]):
+        junk_tag.extract()
+    # remove common junk by id/class
+    for junk in soup.find_all(id=re.compile(r"menu|nav|header|footer|sidebar|cookie|consent", re.IGNORECASE)):
+        junk.extract()
+    for junk in soup.find_all(class_=re.compile(r"menu|nav|header|footer|sidebar|skip|cookie|consent", re.IGNORECASE)):
+        junk.extract()
+    return soup
+
+def get_best_paragraph(soup):
+    """Return the best candidate paragraph text from the parsed page."""
+    candidates = []
+
+    # 1) Prefer paragraphs with >= MIN_PARAGRAPH_WORDS
+    main_content = soup.find("main") or soup.find("article") or soup.find("div", attrs={"role": "main"})
+    if main_content:
+        candidates += [p.get_text(separator=' ', strip=True) for p in main_content.find_all("p") if not is_boilerplate(p.get_text(strip=True)) and len(p.get_text(strip=True).split()) >= MIN_PARAGRAPH_WORDS]
+
+    # 2) If none found, examine all <p> in body
+    if not candidates:
+        body = soup.find("body")
+        if body:
+            candidates = [p.get_text(separator=' ', strip=True) for p in body.find_all("p") if not is_boilerplate(p.get_text(strip=True)) and len(p.get_text(strip=True).split()) >= MIN_PARAGRAPH_WORDS]
+
+    # 2a) consider headings with following sibling text (PATCH #2)
+    if not candidates:
+        for h in soup.find_all(['h1','h2','h3']):
+            heading = h.get_text(separator=' ', strip=True)
+            sib = h.find_next_sibling()
+            gathered = []
+            while sib and len(' '.join(gathered).split()) < 60:
+                txt = sib.get_text(separator=' ', strip=True)
+                if txt:
+                    gathered.append(txt)
+                sib = sib.find_next_sibling()
+            combined = ' '.join([heading] + gathered).strip()
+            if len(combined.split()) >= MIN_PARAGRAPH_WORDS and not is_boilerplate(combined):
+                candidates.append(combined)
+
+    # 3) If still empty, try collecting large text blocks from divs
+    if not candidates:
+        div_texts = []
+        for d in soup.find_all("div"):
+            txt = d.get_text(separator=' ', strip=True)
+            if txt and len(txt.split()) >= MIN_DIV_WORDS and not is_boilerplate(txt): # Use MIN_DIV_WORDS
+                div_texts.append(txt)
+        candidates = div_texts
+
+    # 4) As last resort, use body text chunks split by double newline or long sentences
+    if not candidates:
+        full = soup.get_text(separator='\n', strip=True)
+        chunks = [c.strip() for c in re.split(r'\n{2,}|\r\n{2,}', full) if len(c.split()) >= MIN_PARAGRAPH_WORDS and not is_boilerplate(c)]
+        candidates = chunks
+
+    # 5) Choose best candidate: prefer first paragraph >=MIN_PARAGRAPH_WORDS, otherwise the longest candidate
+    for p in candidates:
+        if p and len(p.split()) >= MIN_PARAGRAPH_WORDS: # Use MIN_PARAGRAPH_WORDS
+            return p.strip()
+    if candidates:
+        longest = max(candidates, key=lambda s: len(s.split()))
+        return longest.strip()
+    return ""
+
 
 def scrape_page_details(url, headers):
-    """Scrapes details from a single page."""
+    """Scrapes details from a single page and avoids returning the title as the content summary."""
     try:
-        response = requests.get(url, headers=headers, timeout=5)
+        response = requests.get(url, headers=headers, timeout=8)
         response.raise_for_status()
         soup = BeautifulSoup(response.content, 'html.parser')
 
-        title = soup.title.string.strip() if soup.title else "No Title"
-        meta_tag = soup.find('meta', attrs={'name': 'description'})
-        meta = meta_tag['content'].strip() if meta_tag and meta_tag.get('content') else "No Meta Description"
-        
-        for script in soup(["script", "style"]):
-            script.extract()
-        content = soup.get_text(separator=' ', strip=True)
-        
-        summary = summarize_text(content)
+        title = soup.title.string.strip() if soup.title and soup.title.string else "No Title"
+        meta = extract_meta_description(soup)
+
+        soup = clean_soup(soup)
+        content_text = get_best_paragraph(soup) # This now uses the new function
+
+        # Better fallback: remove title/meta and pick the longest meaningful chunk
+        if not content_text:
+            full_text = soup.get_text(separator='\n', strip=True)
+            if title and title != "No Title" and title in full_text:
+                # remove only the first occurrence to preserve repeated phrases later
+                full_text = re.sub(rf'\b{re.escape(title)}\b', '', full_text, count=1, flags=re.IGNORECASE).strip()
+            if meta and meta != "No Meta Description" and meta in full_text:
+                full_text = re.sub(rf'\b{re.escape(meta)}\b', '', full_text, count=1, flags=re.IGNORECASE).strip()
+
+            # Keep only lines that look meaningful (>= 8 words, but using new constant)
+            lines = [ln.strip() for ln in full_text.splitlines() if len(ln.split()) >= MIN_PARAGRAPH_WORDS and not is_boilerplate(ln)]
+            if lines:
+                content_text = max(lines, key=lambda s: len(s.split()))
+            else:
+                # Last resort: cleaned continuous text snippet (without title)
+                plain = re.sub(r'\s+', ' ', full_text).strip()
+                content_text = plain[:1000] if plain else ""
+
+        summary = summarize_text(content_text)
+
+        # Guard: if summary equals the title, try alternative paragraph or give empty summary
+        if summary and title and summary.strip().lower() == title.strip().lower():
+            paras = [p.get_text(separator=' ', strip=True) for p in soup.find_all('p') if len(p.get_text(strip=True).split()) >= MIN_PARAGRAPH_WORDS]
+            # prefer paragraph that is not the title and not identical to content_text
+            paras = [p for p in paras if p.strip().lower() != title.strip().lower() and p.strip().lower() != (content_text or "").strip().lower()]
+            alt = max(paras, key=lambda s: len(s.split())) if paras else ""
+            if alt:
+                summary = summarize_text(alt) or (alt[:200].rstrip() + "..." if len(alt) > 200 else alt)
+            else:
+                # fallback to meta description if available
+                if meta and meta != "No Meta Description" and len(meta.split()) >= 5:
+                    summary = meta
+                else:
+                    summary = ""
+
+        if not summary:
+            # Use logger.debug for production, print for this environment
+            logger.debug("no summary for %s; title=%s content_len=%d", url, title, len(content_text.split()) if content_text else 0)
+            summary = ""  # caller can decide placeholder display
 
         return {'URL': url, 'Page Title': title, 'Meta Description': meta, 'Content Summary': summary}
     except requests.RequestException:
@@ -254,43 +394,47 @@ def scrape_website(url):
     """Scrapes the main page and extracts internal links and their details."""
     try:
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
-        response = requests.get(url, headers=headers, timeout=10)
+        response = requests.get(url, headers=headers, timeout=12)
         response.raise_for_status()
         soup = BeautifulSoup(response.content, 'html.parser')
-        
+
         for script in soup(["script", "style"]):
             script.extract()
-            
+
         main_text = soup.get_text(separator='\n', strip=True)
 
         links = set()
         base_netloc = urlparse(url).netloc
         for a_tag in soup.find_all('a', href=True):
-            href = a_tag['href']
-            if href.startswith('#') or href.startswith('mailto:') or href.startswith('tel:'):
+            href = a_tag['href'].strip()
+            if not href or href.startswith('#') or href.startswith('mailto:') or href.startswith('tel:') or href.lower().startswith('javascript:'):
                 continue
-            
             full_url = urljoin(url, href)
-            if urlparse(full_url).netloc == base_netloc:
-                clean_url = urljoin(full_url, urlparse(full_url).path)
-                links.add(clean_url)
-        
+            parsed = urlparse(full_url)
+            if parsed.netloc == base_netloc:
+                clean_url = parsed.scheme + "://" + parsed.netloc + parsed.path
+                links.add(clean_url.rstrip('/'))
+
         pages = []
         homepage_details = scrape_page_details(url, headers)
         if homepage_details:
             pages.append(homepage_details)
-        
-        for link in list(links)[:19]: # Limit total crawl to 20 pages
-             if link != url:
+
+        for link in list(links)[:19]:
+            if link.rstrip('/') != url.rstrip('/'):
                 details = scrape_page_details(link, headers)
                 if details:
                     pages.append(details)
-        
+
+        # Deduplicate by URL
         unique_pages = list({p['URL']: p for p in pages}.values())
-        
+
         return main_text[:15000], unique_pages, None
     except requests.RequestException as e:
         return None, [], f"Failed to fetch website content: {e}"
+
+# --- END NEW SCRAPING FUNCTIONS ---
+
 
 def analyze_scraped_text(api_key, text):
     """Uses AI to analyze scraped text and extract business details."""
@@ -383,7 +527,7 @@ Your Tasks:
         "required": ["target_audience_pain_points", "business_services_products", "target_location", "identified_industry", "branding_tone_voice", "branding_guidelines_summary"]
     }
     
-    api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key={api_key}"
+    api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key={api_key}"
     payload = {
         "contents": [{"parts": [{"text": text}]}],
         "systemInstruction": {"parts": [{"text": system_prompt}]},
@@ -414,7 +558,7 @@ def fetch_with_retry(url, options, retries=3):
     """Retry logic for the API call with a timeout. Returns (response, error_message)."""
     for i in range(retries):
         try:
-            response = requests.post(url, headers=options['headers'], data=options['body'], timeout=120)
+            response = requests.post(url, headers=options['headers'], data=options['body'], timeout=180) # Increased to 180s
             if response.status_code < 500:
                 return response, None
         except requests.exceptions.RequestException as e:
@@ -452,7 +596,11 @@ def convert_df_to_csv(topics_df, available_pages_df, analysis_data, analyzed_url
     # Table 2: Available Pages for Linking
     if not available_pages_df.empty:
         output.write("Table 2: Available Pages for Linking\n")
-        available_pages_df.to_csv(output, index=False)
+        # Ensure available_pages_df is a DataFrame before exporting
+        if isinstance(available_pages_df, pd.DataFrame):
+            available_pages_df.to_csv(output, index=False)
+        else:
+            pd.DataFrame(available_pages_df).to_csv(output, index=False)
         output.write("\n")
 
     # Table 3: Topics
@@ -593,7 +741,7 @@ with col1:
 
 with col2:
     api_tag = '<span class="status-tag tag-green">API Key</span>' if api_key_ready else '<span class="status-tag tag-red">API Key</span>'
-    details_tag = '<span class="status-tag tag-green">Business Details</span>' if details_ready else '<span class="status-tag tag-red">Business Details</span>'
+    details_tag = '<span class="status-tag tag-green">Business Details</span>' if details_ready else '<span class.status-tag tag-red">Business Details</span>'
     st.markdown(f"""
     <div style="display: flex; align-items: center; height: 100%;">
         <h6 style='margin: 0; padding-right: 10px; font-weight: normal; font-size: 0.9em;'>Requirements to Run App:</h6>
@@ -681,7 +829,7 @@ if generate_btn:
             
             schema = {"type": "OBJECT", "properties": {"productBasedTopics": product_based_topics_properties, "pageBasedTopics": page_based_topics_properties}, "required": ["productBasedTopics", "pageBasedTopics"]}
 
-            api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key={st.session_state.api_key}"
+            api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key={st.session_state.api_key}"
             payload = {"contents": [{"parts": [{"text": user_query}]}], "systemInstruction": {"parts": [{"text": system_prompt}]}, "generationConfig": {"responseMimeType": "application/json", "responseSchema": schema}}
             options = {'headers': {'Content-Type': 'application/json'}, 'body': json.dumps(payload)}
             
@@ -703,11 +851,11 @@ if generate_btn:
                     st.error(f"Failed to parse API response: {e}")
             elif response:
                  try:
-                    error_details = response.json()
-                    st.error(f"API request failed with status code: {response.status_code}.")
-                    st.json(error_details)
+                     error_details = response.json()
+                     st.error(f"API request failed with status code: {response.status_code}.")
+                     st.json(error_details)
                  except json.JSONDecodeError:
-                    st.error(f"API request failed with status code: {response.status_code}.")
+                     st.error(f"API request failed with status code: {response.status_code}.")
 
 # --- Display Results ---
 if not st.session_state.dataframe.empty:
@@ -788,3 +936,4 @@ if not st.session_state.dataframe.empty:
         file_name=f"topic_generator_output_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
         mime='text/csv',
     )
+
