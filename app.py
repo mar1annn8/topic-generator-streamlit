@@ -10,6 +10,7 @@ import os
 import re
 from collections import Counter
 import nltk
+import html
 
 # --- Download NLTK data ---
 try:
@@ -220,82 +221,108 @@ def validate_api_key(api_key):
         return False
 
 def summarize_text(text, sentence_count=1):
-    """Simple extractive summary."""
-    text = re.sub(r'\s+', ' ', text) # Normalize whitespace
-    sentences = re.split(r'(?<=[.!?]) +', text)
+    """Simple extractive summary from real text. Returns empty string if input is empty/placeholder."""
+    if not text or text.strip() == "" or text.strip().lower() == "no summary available.":
+        return ""  # explicit empty summary to avoid returning the placeholder
     
-    # Find the first sentence that is long enough
-    first_meaningful_sentence = "No summary available."
+    text = html.unescape(re.sub(r'\s+', ' ', text))  # Normalize whitespace and unescape entities
+    # Split into sentences (simple heuristic)
+    sentences = re.split(r'(?<=[.!?])\s+', text)
+    # Choose the first sentence that's long enough, otherwise the longest sentence, otherwise a snippet
     for s in sentences:
-        if len(s.split()) > 10: # At least 10 words
-            first_meaningful_sentence = s.strip()
-            break
-    
-    if first_meaningful_sentence == "No summary available." and len(text) > 150:
-         return text[:150] + "..." # Fallback to a snippet
-    elif first_meaningful_sentence == "No summary available." and len(text) > 10:
-        return text
-    elif first_meaningful_sentence == "No summary available.":
-        return "No summary available."
-         
-    return first_meaningful_sentence
+        if len(s.split()) >= 8:
+            return s.strip()
+    if sentences:
+        longest = max(sentences, key=lambda s: len(s.split()))
+        if len(longest.split()) >= 4:
+            return longest.strip()
+    # fallback snippet
+    return (text[:200].rstrip() + "...") if len(text) > 200 else text.strip()
+
+def extract_meta_description(soup):
+    """Robust meta description lookup."""
+    # common patterns: <meta name="description">, <meta property="og:description">, <meta name="twitter:description">
+    selectors = [
+        ('name', 'description'),
+        ('property', 'og:description'),
+        ('name', 'twitter:description'),
+        ('itemprop', 'description'),
+    ]
+    for attr, val in selectors:
+        tag = soup.find('meta', attrs={attr: val})
+        if tag and tag.get('content'):
+            return tag['content'].strip()
+    return "No Meta Description"
+
+def clean_soup(soup):
+    """Remove unwanted tags and attributes to make text extraction cleaner."""
+    for junk_tag in soup(["script", "style", "nav", "header", "footer", "aside", "form", "noscript"]):
+        junk_tag.extract()
+    # remove common junk by id/class
+    for junk in soup.find_all(id=re.compile(r"menu|nav|header|footer|sidebar|cookie|consent", re.IGNORECASE)):
+        junk.extract()
+    for junk in soup.find_all(class_=re.compile(r"menu|nav|header|footer|sidebar|skip|cookie|consent", re.IGNORECASE)):
+        junk.extract()
+    return soup
+
+def get_best_paragraph(soup):
+    """Return the best candidate paragraph text from the parsed page."""
+    # 1) Prefer <main> or <article>
+    main_content = soup.find("main") or soup.find("article") or soup.find("div", attrs={"role": "main"})
+    candidates = []
+    if main_content:
+        candidates += [p.get_text(separator=' ', strip=True) for p in main_content.find_all("p")]
+
+    # 2) If none found, examine all <p> in body
+    if not candidates:
+        body = soup.find("body")
+        if body:
+            candidates = [p.get_text(separator=' ', strip=True) for p in body.find_all("p")]
+
+    # 3) If still empty, try collecting large text blocks from divs
+    if not candidates:
+        div_texts = []
+        for d in soup.find_all("div"):
+            txt = d.get_text(separator=' ', strip=True)
+            if txt and len(txt.split()) >= 20:
+                div_texts.append(txt)
+        candidates = div_texts
+
+    # 4) Choose best candidate: prefer first paragraph >=10 words, otherwise the longest candidate
+    for p in candidates:
+        if p and len(p.split()) >= 10:
+            return p.strip()
+    if candidates:
+        longest = max(candidates, key=lambda s: len(s.split()))
+        return longest.strip()
+    return ""
+
 
 def scrape_page_details(url, headers):
     """Scrapes details from a single page."""
     try:
-        response = requests.get(url, headers=headers, timeout=5)
+        response = requests.get(url, headers=headers, timeout=8)
         response.raise_for_status()
         soup = BeautifulSoup(response.content, 'html.parser')
 
-        title = soup.title.string.strip() if soup.title else "No Title"
-        meta_tag = soup.find('meta', attrs={'name': 'description'})
-        meta = meta_tag['content'].strip() if meta_tag and meta_tag.get('content') else "No Meta Description"
-        
-        # Remove common junk elements by tag
-        for junk_tag in soup(["script", "style", "nav", "header", "footer", "aside"]):
-            junk_tag.extract()
-        
-        # Remove common junk elements by ID or class
-        for junk_id in soup.find_all(id=re.compile("menu|nav|header|footer|sidebar", re.IGNORECASE)):
-            junk_id.extract()
-        for junk_class in soup.find_all(class_=re.compile("menu|nav|header|footer|sidebar|skip", re.IGNORECASE)):
-            junk_class.extract()
-        for junk_role in soup.find_all(role=re.compile("navigation|banner|contentinfo|complementary")):
-            junk_role.extract()
+        title = soup.title.string.strip() if soup.title and soup.title.string else "No Title"
+        meta = extract_meta_description(soup)
 
-        # Try to find main content, fallback to body
-        main_content = soup.find("main") or soup.find("article") or soup.find("div", role="main")
-        
-        content = "No summary available."
-        if main_content:
-            # Get text from paragraphs
-            paragraphs = main_content.find_all("p")
-            if paragraphs:
-                # Find the first paragraph that is long enough to be a summary
-                for p in paragraphs:
-                    p_text = p.get_text(separator=' ', strip=True)
-                    if len(p_text.split()) > 10: # At least 10 words
-                        content = p_text
-                        break # Found the first good paragraph
-            
-            # If no good paragraph, fallback to main content text, but clean it
-            if content == "No summary available.":
-                all_text = main_content.get_text(separator=' ', strip=True)
-                content = re.sub(r'\s+', ' ', all_text) # Normalize whitespace
-        
-        # If no main_content was found, try to find paragraphs in the body
-        if content == "No summary available.":
-             body_pars = soup.find("body")
-             if body_pars:
-                paragraphs = body_pars.find_all("p")
-                if paragraphs:
-                    for p in paragraphs:
-                        p_text = p.get_text(separator=' ', strip=True)
-                        if len(p_text.split()) > 10:
-                            content = p_text
-                            break
+        soup = clean_soup(soup)
+        content_text = get_best_paragraph(soup)
+        # If still empty, take a snippet of the cleaned page text (avoid the placeholder)
+        if not content_text:
+            full_text = soup.get_text(separator=' ', strip=True)
+            content_text = full_text[:1000] if full_text else ""
 
-        summary = summarize_text(content) # Use the summarize function on the cleaner text
+        summary = summarize_text(content_text)
+
+        # If summary still empty, provide a sensible fallback (short snippet of page text)
+        if not summary and content_text:
+            summary = (content_text[:200].rstrip() + "...") if len(content_text) > 200 else content_text
+
+        if not summary:
+            summary = ""  # keep empty rather than "No summary available." so callers can handle it
 
         return {'URL': url, 'Page Title': title, 'Meta Description': meta, 'Content Summary': summary}
     except requests.RequestException:
@@ -306,40 +333,41 @@ def scrape_website(url):
     """Scrapes the main page and extracts internal links and their details."""
     try:
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
-        response = requests.get(url, headers=headers, timeout=10)
+        response = requests.get(url, headers=headers, timeout=12)
         response.raise_for_status()
         soup = BeautifulSoup(response.content, 'html.parser')
-        
+
         for script in soup(["script", "style"]):
             script.extract()
-            
+
         main_text = soup.get_text(separator='\n', strip=True)
 
         links = set()
         base_netloc = urlparse(url).netloc
         for a_tag in soup.find_all('a', href=True):
-            href = a_tag['href']
-            if href.startswith('#') or href.startswith('mailto:') or href.startswith('tel:'):
+            href = a_tag['href'].strip()
+            if not href or href.startswith('#') or href.startswith('mailto:') or href.startswith('tel:') or href.lower().startswith('javascript:'):
                 continue
-            
             full_url = urljoin(url, href)
-            if urlparse(full_url).netloc == base_netloc:
-                clean_url = urljoin(full_url, urlparse(full_url).path)
-                links.add(clean_url)
-        
+            parsed = urlparse(full_url)
+            if parsed.netloc == base_netloc:
+                clean_url = parsed.scheme + "://" + parsed.netloc + parsed.path
+                links.add(clean_url.rstrip('/'))
+
         pages = []
         homepage_details = scrape_page_details(url, headers)
         if homepage_details:
             pages.append(homepage_details)
-        
-        for link in list(links)[:19]: # Limit total crawl to 20 pages
-             if link != url:
+
+        for link in list(links)[:19]:
+            if link.rstrip('/') != url.rstrip('/'):
                 details = scrape_page_details(link, headers)
                 if details:
                     pages.append(details)
-        
+
+        # Deduplicate by URL
         unique_pages = list({p['URL']: p for p in pages}.values())
-        
+
         return main_text[:15000], unique_pages, None
     except requests.RequestException as e:
         return None, [], f"Failed to fetch website content: {e}"
