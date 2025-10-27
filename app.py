@@ -210,6 +210,10 @@ if 'available_pages_df' not in st.session_state: st.session_state.available_page
 
 # --- Functions ---
 STOPWORDS = set(stopwords.words("english"))
+BOILERPLATE_TOKENS = ['©', 'privacy', 'terms', 'cookie', 'subscribe', 'navigation']
+
+def is_boilerplate(s):
+    return any(tok in s.lower() for tok in BOILERPLATE_TOKENS)
 
 def validate_api_key(api_key):
     """Checks if the API key is valid by making a simple request."""
@@ -219,6 +223,8 @@ def validate_api_key(api_key):
         return response.status_code == 200
     except requests.RequestException:
         return False
+
+# --- NEW SCRAPING & SUMMARIZING FUNCTIONS ---
 
 def summarize_text(text, sentence_count=1):
     """Simple extractive summary from real text. Returns empty string if input is empty/placeholder."""
@@ -271,26 +277,26 @@ def get_best_paragraph(soup):
     main_content = soup.find("main") or soup.find("article") or soup.find("div", attrs={"role": "main"})
     candidates = []
     if main_content:
-        candidates += [p.get_text(separator=' ', strip=True) for p in main_content.find_all("p")]
+        candidates += [p.get_text(separator=' ', strip=True) for p in main_content.find_all("p") if not is_boilerplate(p.get_text(strip=True))]
 
     # 2) If none found, examine all <p> in body
     if not candidates:
         body = soup.find("body")
         if body:
-            candidates = [p.get_text(separator=' ', strip=True) for p in body.find_all("p")]
+            candidates = [p.get_text(separator=' ', strip=True) for p in body.find_all("p") if not is_boilerplate(p.get_text(strip=True))]
 
     # 3) If still empty, try collecting large text blocks from divs
     if not candidates:
         div_texts = []
         for d in soup.find_all("div"):
             txt = d.get_text(separator=' ', strip=True)
-            if txt and len(txt.split()) >= 20:
+            if txt and len(txt.split()) >= 20 and not is_boilerplate(txt):
                 div_texts.append(txt)
         candidates = div_texts
 
     # 4) Choose best candidate: prefer first paragraph >=10 words, otherwise the longest candidate
     for p in candidates:
-        if p and len(p.split()) >= 10:
+        if p and len(p.split()) >= 8:
             return p.strip()
     if candidates:
         longest = max(candidates, key=lambda s: len(s.split()))
@@ -299,7 +305,7 @@ def get_best_paragraph(soup):
 
 
 def scrape_page_details(url, headers):
-    """Scrapes details from a single page."""
+    """Scrapes details from a single page and avoids returning the title as the content summary."""
     try:
         response = requests.get(url, headers=headers, timeout=8)
         response.raise_for_status()
@@ -310,19 +316,45 @@ def scrape_page_details(url, headers):
 
         soup = clean_soup(soup)
         content_text = get_best_paragraph(soup)
-        # If still empty, take a snippet of the cleaned page text (avoid the placeholder)
+
+        # Better fallback: remove title/meta and pick the longest meaningful chunk
         if not content_text:
-            full_text = soup.get_text(separator=' ', strip=True)
-            content_text = full_text[:1000] if full_text else ""
+            full_text = soup.get_text(separator='\n', strip=True)
+            if title and title in full_text:
+                # remove only the first occurrence to preserve repeated phrases later
+                full_text = re.sub(rf'\b{re.escape(title)}\b', '', full_text, count=1, flags=re.IGNORECASE)
+            if meta and meta != "No Meta Description" and meta in full_text:
+                full_text = re.sub(rf'\b{re.escape(meta)}\b', '', full_text, count=1, flags=re.IGNORECASE)
+
+            # Keep only lines that look meaningful (>= 8 words)
+            lines = [ln.strip() for ln in full_text.splitlines() if len(ln.split()) >= 8 and not is_boilerplate(ln)]
+            if lines:
+                content_text = max(lines, key=lambda s: len(s.split()))
+            else:
+                # Last resort: cleaned continuous text snippet (without title)
+                plain = re.sub(r'\s+', ' ', full_text).strip()
+                content_text = plain[:1000] if plain else ""
 
         summary = summarize_text(content_text)
 
-        # If summary still empty, provide a sensible fallback (short snippet of page text)
-        if not summary and content_text:
-            summary = (content_text[:200].rstrip() + "...") if len(content_text) > 200 else content_text
+        # Guard: if summary equals the title, try alternative paragraph or give empty summary
+        if summary and title and summary.strip().lower() == title.strip().lower():
+            paras = [p.get_text(separator=' ', strip=True) for p in soup.find_all('p') if len(p.get_text(strip=True).split()) >= 8]
+            # prefer paragraph that is not the title and not identical to content_text
+            paras = [p for p in paras if p.strip().lower() != title.strip().lower() and p.strip().lower() != (content_text or "").strip().lower()]
+            alt = max(paras, key=lambda s: len(s.split())) if paras else ""
+            if alt:
+                summary = summarize_text(alt) or (alt[:200].rstrip() + "..." if len(alt) > 200 else alt)
+            else:
+                # fallback to meta description if available
+                if meta and meta != "No Meta Description" and len(meta.split()) >= 5:
+                    summary = meta
+                else:
+                    summary = ""
 
         if not summary:
-            summary = ""  # keep empty rather than "No summary available." so callers can handle it
+            print(f"[debug] no summary for {url}; title='{title}' content_text_len={len(content_text or '')}")
+            summary = ""  # caller can decide placeholder display
 
         return {'URL': url, 'Page Title': title, 'Meta Description': meta, 'Content Summary': summary}
     except requests.RequestException:
@@ -371,6 +403,9 @@ def scrape_website(url):
         return main_text[:15000], unique_pages, None
     except requests.RequestException as e:
         return None, [], f"Failed to fetch website content: {e}"
+
+# --- END NEW SCRAPING FUNCTIONS ---
+
 
 def analyze_scraped_text(api_key, text):
     """Uses AI to analyze scraped text and extract business details."""
@@ -759,7 +794,7 @@ if generate_btn:
             audience_properties = {"type": "OBJECT", "properties": {"audienceName": {"type": "STRING"}, "publications": {"type": "ARRAY", "items": publication_properties}}, "required": ["audienceName", "publications"]}
             funnel_properties = {"type": "OBJECT", "properties": {"funnelStage": {"type": "STRING", "enum": ["ToFu", "MoFu", "BoFu"]}, "audiences": {"type": "ARRAY", "items": audience_properties}}, "required": ["funnelStage", "audiences"]}
             
-            product_based_topics_properties = {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"productName": {"type": "STRING", "description": "The name of the product/service."}, "funnels": {"type":A "ARRAY", "items": funnel_properties}}, "required": ["productName", "funnels"]}}
+            product_based_topics_properties = {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"productName": {"type": "STRING", "description": "The name of the product/service."}, "funnels": {"type": "ARRAY", "items": funnel_properties}}, "required": ["productName", "funnels"]}}
             
             page_based_topics_properties = {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"pageTitle": {"type": "STRING"}, "pageURL": {"type": "STRING"}, "funnels": {"type": "ARRAY", "items": funnel_properties}}, "required": ["pageTitle", "pageURL", "funnels"]}}
             
