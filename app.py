@@ -252,10 +252,12 @@ def scrape_page_details(url, headers):
             junk_tag.extract()
         
         # Remove common junk elements by ID or class
-        for junk_id in soup.find_all(id=re.compile("menu|nav|header|footer")):
+        for junk_id in soup.find_all(id=re.compile("menu|nav|header|footer|sidebar")):
             junk_id.extract()
-        for junk_class in soup.find_all(class_=re.compile("menu|nav|header|footer")):
+        for junk_class in soup.find_all(class_=re.compile("menu|nav|header|footer|sidebar|skip")):
             junk_class.extract()
+        for junk_role in soup.find_all(role=re.compile("navigation|banner|contentinfo|complementary")):
+            junk_role.extract()
 
         # Try to find main content, fallback to body
         main_content = soup.find("main") or soup.find("article") or soup.find("body")
