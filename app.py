@@ -137,7 +137,6 @@ with st.expander("Instructions"):
         - Page Title
         - Meta Description
         - Content Summary
-        - Suggested Focus Keyword
 
         **Table 3: Topics**
         This section contains the suggested content ideas, organized in a table with the following columns: Category, Group Name, Target Audience, Publication Niche, Funnel Stage, Topic, Suggested Headline, Rationale, Anchor text, Destination Page, Focus Keyword
@@ -237,16 +236,6 @@ def summarize_text(text, sentence_count=1):
          
     return first_meaningful_sentence
 
-def suggest_focus_keyword(text, top_n=1):
-    """Suggests a focus keyword based on word frequency."""
-    words = re.findall(r"\b[a-zA-Z]{3,}\b", text.lower())
-    filtered = [w for w in words if w not in STOPWORDS]
-    freq = Counter(filtered)
-    if not freq:
-        return "N/A"
-    return ", ".join([w for w, _ in freq.most_common(top_n)])
-
-
 def scrape_page_details(url, headers):
     """Scrapes details from a single page."""
     try:
@@ -289,9 +278,8 @@ def scrape_page_details(url, headers):
                 content = re.sub(r'\s+', ' ', content) # Normalize whitespace
 
         summary = summarize_text(content) # Use the summarize function on the cleaner text
-        keyword = suggest_focus_keyword(content)
 
-        return {'URL': url, 'Page Title': title, 'Meta Description': meta, 'Content Summary': summary, 'Suggested Focus Keyword': keyword}
+        return {'URL': url, 'Page Title': title, 'Meta Description': meta, 'Content Summary': summary}
     except requests.RequestException:
         return None
 
@@ -638,7 +626,7 @@ with col1:
     generate_btn = st.button("Generate Topics", type="primary")
 
 with col2:
-    api_tag = '<span class.status-tag tag-green">API Key</span>' if api_key_ready else '<span class="status-tag tag-red">API Key</span>'
+    api_tag = '<span class="status-tag tag-green">API Key</span>' if api_key_ready else '<span class="status-tag tag-red">API Key</span>'
     details_tag = '<span class="status-tag tag-green">Business Details</span>' if details_ready else '<span class.status-tag tag-red">Business Details</span>'
     st.markdown(f"""
     <div style="display: flex; align-items: center; height: 100%;">
