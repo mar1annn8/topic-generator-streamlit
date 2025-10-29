@@ -142,7 +142,6 @@ with st.expander("Instructions"):
         - URL
         - Page Title
         - Meta Description
-        - Content Summary
 
         **Table 3: Topics**
         This section contains the suggested content ideas, organized in a table with the following columns: Category, Group Name, Target Audience, Publication Niche, Funnel Stage, Topic, Suggested Headline, Rationale, Anchor text, Destination Page, Focus Keyword
