@@ -14,12 +14,14 @@ import html
 import logging
 
 # --- Download NLTK data ---
-from nltk.corpus import stopwords
+# Ensure NLTK data is available
 try:
-    STOPWORDS = set(stopwords.words("english"))
+    nltk.data.find('corpora/stopwords')
 except LookupError:
-    nltk.download("stopwords")
-    STOPWORDS = set(stopwords.words("english"))
+    nltk.download('stopwords')
+from nltk.corpus import stopwords
+STOPWORDS = set(stopwords.words("english"))
+
 
 # --- Setup Logger ---
 logger = logging.getLogger(__name__)
@@ -142,6 +144,7 @@ with st.expander("Instructions"):
         - URL
         - Page Title
         - Meta Description
+        - Content Summary
 
         **Table 3: Topics**
         This section contains the suggested content ideas, organized in a table with the following columns: Category, Group Name, Target Audience, Publication Niche, Funnel Stage, Topic, Suggested Headline, Rationale, Anchor text, Destination Page, Focus Keyword
@@ -723,6 +726,15 @@ with st.sidebar:
         st.text_area("Product/Service to Highlight", key="product_input")
         st.text_area("Full Copywriting Guidelines", key="guidelines")
 
+    st.divider()
+    # Adding the donation button
+    # Make sure to replace "your-username" with the actual username
+    try:
+        from streamlit_extras.buy_me_a_coffee import button
+        button(username="mar1ann8", floating=False, width=221)
+    except ImportError:
+        st.write("Could not import Buy Me A Coffee button. Is `streamlit-extras` installed?")
+
 
 # --- Main Window Button and Topic Generation Logic ---
 st.divider()
@@ -761,8 +773,20 @@ if generate_btn:
             
             system_prompt = """You are a strategic content and marketing analyst. Your task is to generate two distinct sets of topics based on the provided business details:
             
-            1.  **Topics for each Product/Service:** For EACH item in the `List of Business Services`, generate topics for all three marketing funnels (ToFu, MoFu, BoFu).
-            2.  **Topics for each Available Page:** For EACH item in the `List of Available Pages`, generate topics for all three marketing funnels (ToFu, MoFu, BoFu).
+            1.  **Topics for each Product/Service:** For EACH item in the `List of Business Services`, generate **creative, non-promotional** topics for all three marketing funnels (ToFu, MoFu, BoFu) that address the associated pain points.
+                - *Example Good (ToFu):* "5 Common Mistakes to Avoid When Applying for an MMJ Card"
+                - *Example Bad (Promotional):* "Get Your MMJ Card Today With Our Help"
+            
+            2.  **Topics for each Available Page:** For EACH item in the `List of Available Pages`, generate **non-promotional, page-specific** topics for all three marketing funnels (ToFu, MoFu, BoFu) based on that page's summary.
+                - *Example Good (MoFu):* "What to Expect at Your First MMJ Appointment" (for a "Patient Forms" page)
+                - *Example Bad (Promotional):* "Book Your Appointment at Our Tampa Office"
+
+            **CRITICAL RULE: DO NOT CREATE PROMOTIONAL TOPICS.**
+            These topics are for external guest posts, not the company's website.
+            - **AVOID:** Direct calls to action (e.g., "Book Now," "Get Certified," "Schedule Today").
+            - **AVOID:** Topics focused on "expert help" or "support" from this specific company (e.g., "Why Our Doctors Are Best").
+            - **AVOID:** Topics designed to persuade the user to choose this company's service.
+            - **FOCUS ON:** Explaining concepts, processes, general information, and answering the target audience's questions and pain points.
 
             For EACH funnel stage (ToFu, MoFu, BoFu) in both sets, you must identify a relevant `audienceName` and `publicationNiche`, and then provide at least one topic.
 
