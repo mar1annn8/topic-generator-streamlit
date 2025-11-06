@@ -725,11 +725,11 @@ with st.sidebar:
         st.text_area("Full Copywriting Guidelines", key="guidelines")
 
     st.divider()
-    # Adding the Buy Me a Coffee button
+    # Adding the donation button
     # Make sure to replace "your-username" with the actual username
     try:
         from streamlit_extras.buy_me_a_coffee import button
-        button(username="your-username", floating=False, width=221)
+        button(username="mar1ann8", floating=False, width=221)
     except ImportError:
         st.write("Could not import Buy Me A Coffee button. Is `streamlit-extras` installed?")
 
