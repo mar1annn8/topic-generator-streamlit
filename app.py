@@ -14,14 +14,12 @@ import html
 import logging
 
 # --- Download NLTK data ---
-# Ensure NLTK data is available
+from nltk.corpus import stopwords  # <-- This is the fix
 try:
-    nltk.data.find('corpora/stopwords')
+    STOPWORDS = set(stopwords.words("english"))
 except LookupError:
-    nltk.download('stopwords')
-from nltk.corpus import stopwords
-STOPWORDS = set(stopwords.words("english"))
-
+    nltk.download("stopwords")
+    STOPWORDS = set(stopwords.words("english"))
 
 # --- Setup Logger ---
 logger = logging.getLogger(__name__)
@@ -727,11 +725,11 @@ with st.sidebar:
         st.text_area("Full Copywriting Guidelines", key="guidelines")
 
     st.divider()
-    # Adding the donation button
+    # Adding the Buy Me a Coffee button
     # Make sure to replace "your-username" with the actual username
     try:
         from streamlit_extras.buy_me_a_coffee import button
-        button(username="mar1ann8", floating=False, width=221)
+        button(username="your-username", floating=False, width=221)
     except ImportError:
         st.write("Could not import Buy Me A Coffee button. Is `streamlit-extras` installed?")
 
@@ -960,4 +958,5 @@ if not st.session_state.dataframe.empty:
         file_name=f"topic_generator_output_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
         mime='text/csv',
     )
+
 
