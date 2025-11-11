@@ -727,7 +727,7 @@ with st.sidebar:
     st.divider()
     # Add your profile link here
     st.markdown("""
-    Created by [Your Name/Business Name](https://www.your-profile-site.com)
+    Created by [mar1ann8](https://bit.ly/mbgatlabayan)
     *Custom data solutions, strategic business insights, and targeted digital marketing.*
     """)
     
