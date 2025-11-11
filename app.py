@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 # --- Page Configuration ---
 st.set_page_config(
-    page_title="Topic Generator",
+    page_title="Topic Generator by mar1ann8",
     layout="wide"
 )
 
