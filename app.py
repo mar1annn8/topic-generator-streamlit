@@ -727,8 +727,8 @@ with st.sidebar:
     st.divider()
     # Add your profile link here
     st.markdown("""
-    Created by [mar1ann8 | ](https://bit.ly/mbgatlabayan)
-    *Custom data solutions, strategic business insights, and targeted digital marketing.*
+    Created by [mar1ann8](https://bit.ly/mbgatlabayan)
+    * | Custom data solutions, strategic business insights, and targeted digital marketing.*
     """)
     
     # Adding the Buy Me a Coffee button
