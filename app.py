@@ -671,7 +671,7 @@ if st.session_state.get('analyze_btn_clicked', False):
             scraped_text, scraped_pages, error = scrape_website(website_url)
             if error:
                 if "403" in str(error):
-                    st.error("This website blocked scraping (403 Forbidden). Please analyze the site manually and paste the details into the fields below.")
+                    st.error("This website blocked scraping (403 Forbidden). Please analyze the site manually and paste the Business details into the fields on the settings bar.")
                 else:
                     st.error(error)
             else:
