@@ -13,16 +13,13 @@ import nltk
 import html
 import logging
 
-# --- Download NLTK data (Patch 1) ---
-from nltk.corpus import stopwords
-try:
-    STOPWORDS = set(stopwords.words("english"))
-except LookupError:
-    nltk.download("stopwords")
-    STOPWORDS = set(stopwords.words("english"))
-
 # --- Setup Logger (Patch 3) ---
 logger = logging.getLogger(__name__)
+
+# --- NLTK Stopwords Fix (Patch 1) ---
+# Hardcode stopwords to avoid nltk.download() errors on Streamlit Cloud
+STOPWORDS = set(['i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you', "you're", "you've", "you'll", "you'd", 'your', 'yours', 'yourself', 'yourselves', 'he', 'him', 'his', 'himself', 'she', "she's", 'her', 'hers', 'herself', 'it', "it's", 'its', 'itself', 'they', 'them', 'their', 'theirs', 'themselves', 'what', 'which', 'who', 'whom', 'this', 'that', "that'll", 'these', 'those', 'am', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'having', 'do', 'does', 'did', 'doing', 'a', 'an', 'the', 'and', 'but', 'if', 'or', 'because', 'as', 'until', 'while', 'of', 'at', 'by', 'for', 'with', 'about', 'against', 'between', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'to', 'from', 'up', 'down', 'in', 'out', 'on', 'off', 'over', 'under', 'again', 'further', 'then', 'once', 'here', 'there', 'when', 'where', 'why', 'how', 'all', 'any', 'both', 'each', 'few', 'more', 'most', 'other', 'some', 'such', 'no', 'nor', 'not', 'only', 'own', 'same', 'so', 'than', 'too', 'very', 's', 't', 'can', 'will', 'just', 'don', "don't", 'should', "should've", 'now', 'd', 'll', 'm', 'o', 're', 've', 'y', 'ain', 'aren', "aren't", 'couldn', "couldn't", 'didn', "didn't", 'doesn', "doesn't", 'hadn', "hadn't", 'hasn', "hasn't", 'haven', "haven't", 'isn', "isn't", 'ma', 'mightn', "mightn't", 'mustn', "mustn't", 'needn', "needn't", 'shan', "shan't", 'shouldn', "shouldn't", 'wasn', "wasn't", 'weren', "weren't", 'won', "won't", 'wouldn', "wouldn't"])
+
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -673,7 +670,10 @@ if st.session_state.get('analyze_btn_clicked', False):
         with st.spinner("Scraping and analyzing website..."):
             scraped_text, scraped_pages, error = scrape_website(website_url)
             if error:
-                st.error(error)
+                if "403" in str(error):
+                    st.error("This website blocked scraping (403 Forbidden). Please analyze the site manually and paste the details into the fields below.")
+                else:
+                    st.error(error)
             else:
                 analysis, error = analyze_scraped_text(api_key, scraped_text)
                 if error:
@@ -812,7 +812,9 @@ if generate_btn:
                  user_query += f"Base Website URL for Destination Pages: {st.session_state.analyzed_url}\n"
                  if st.session_state.scraped_links:
                      user_query += "List of Available URLs to choose from for the 'destinationPage' (with their anchor text for context):\n"
-                     for page in st.session_state.scraped_links:
+                     # Convert list of dicts to list of dicts before iterating
+                     pages_list_for_query = st.session_state.available_pages_df.to_dict('records')
+                     for page in pages_list_for_query:
                          user_query += f"- {page['URL']} (Context: {page['Page Title']})\n"
                      user_query += "\n"
             
