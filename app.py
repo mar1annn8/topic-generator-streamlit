@@ -13,20 +13,20 @@ import nltk
 import html
 import logging
 
-# --- Download NLTK data ---
-from nltk.corpus import stopwords  # <-- This is the fix
+# --- Download NLTK data (Patch 1) ---
+from nltk.corpus import stopwords
 try:
     STOPWORDS = set(stopwords.words("english"))
 except LookupError:
     nltk.download("stopwords")
     STOPWORDS = set(stopwords.words("english"))
 
-# --- Setup Logger ---
+# --- Setup Logger (Patch 3) ---
 logger = logging.getLogger(__name__)
 
 # --- Page Configuration ---
 st.set_page_config(
-    page_title="Topic Generator by mar1ann8",
+    page_title="Topic Generator",
     layout="wide"
 )
 
@@ -393,8 +393,8 @@ def scrape_page_details(url, headers):
 def scrape_website(url):
     """Scrapes the main page and extracts internal links and their details."""
     try:
-        # UPDATED: Using a more modern User-Agent
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36'}
+        # UPDATED: Using a Googlebot User-Agent to bypass simple firewalls
+        headers = {'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)'}
         response = requests.get(url, headers=headers, timeout=12)
         response.raise_for_status()
         soup = BeautifulSoup(response.content, 'html.parser')
@@ -725,11 +725,17 @@ with st.sidebar:
         st.text_area("Full Copywriting Guidelines", key="guidelines")
 
     st.divider()
-    # Adding the donation button
+    # Add your profile link here
+    st.markdown("""
+    Created by [Your Name/Business Name](https://www.your-profile-site.com)
+    *Custom data solutions, strategic business insights, and targeted digital marketing.*
+    """)
+    
+    # Adding the Buy Me a Coffee button
     # Make sure to replace "your-username" with the actual username
     try:
         from streamlit_extras.buy_me_a_coffee import button
-        button(username="mar1ann8", floating=False, width=221)
+        button(username="your-username", floating=False, width=221)
     except ImportError:
         st.write("Could not import Buy Me A Coffee button. Is `streamlit-extras` installed?")
 
@@ -958,5 +964,3 @@ if not st.session_state.dataframe.empty:
         file_name=f"topic_generator_output_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
         mime='text/csv',
     )
-
-
