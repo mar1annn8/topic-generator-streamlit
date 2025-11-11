@@ -857,7 +857,7 @@ if generate_btn:
             
             schema = {"type": "OBJECT", "properties": {"productBasedTopics": product_based_topics_properties, "pageBasedTopics": page_based_topics_properties}, "required": ["productBasedTopics", "pageBasedTopics"]}
 
-            api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key={st.session_state.api_key}"
+            api_url = f"https.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key={st.session_state.api_key}"
             payload = {"contents": [{"parts": [{"text": user_query}]}], "systemInstruction": {"parts": [{"text": system_prompt}]}, "generationConfig": {"responseMimeType": "application/json", "responseSchema": schema}}
             options = {'headers': {'Content-Type': 'application/json'}, 'body': json.dumps(payload)}
             
